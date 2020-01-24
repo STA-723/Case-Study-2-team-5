@@ -1,0 +1,77 @@
+---
+title: "Exploratory Work"
+author: "Youngsoo Baek"
+---
+
+```{r setup, echo=FALSE}
+library(knitr)
+knitr::opts_chunk$set(fig.height = 5)
+airbnb <- read.csv("AB_NYC_2019.csv")
+```
+
+The `airbnb` dataset has 48,895 listings and 16 variables. We want to identify any discernible and interesting patterns among the listings in NYC. Some of the questions mentioned include:
+
+  * What are the most influential factors on the popularity/price of the listing?
+  
+  * Is there heterogeneity among boroughs and neighbourhoods? If so, which of them has the highest traffic/price?
+  
+  * Does the type of listing vary across neighbourhoods?
+  
+  * What location and name are most likely to make a listing popular and/or expensive?
+
+There are `r sum(airbnb$number_of_reviews==0)` listings (~20\%) that do not have any reviews, for which `reviews_per_month` variable is coded as missing. The number of reviews for a listing conveys its "popularity," but not the direction of the sentiment. A running assumption can be that the place will not have as many listings were it a bad one, since less people would have visited it over time due to bad reviews. 
+
+There are also `r sum(airbnb$price==0)` listings that have prices listed as zero dollars. This can be simply a small value detection problem: prices any listing that has price below 10\$ must have been simply recorded as zero.
+
+Ideally, we should be working towards a model that predicts popularity/price of a listing, possibly *jointly*, adjusted for its different features, including its location. Heterogeneity across neighbourhoods/boroughs can be naturally incorporated through multilevel regression. It is not yet clear how the *name* of a listing may factor into this model.
+
+# EDA (regarding 2nd and 3rd questions)
+Many listings are concentrated in Brooklyn and Manhattan, with listing prices in Manhattan being the highest on average.
+
+```{r distn_per_borough}
+library(ggplot2)
+library(dplyr)
+ggplot(airbnb, aes(log(price))) + geom_histogram() + facet_wrap(~ neighbourhood_group )
+```
+
+The dataset shows, as expected, an inverse relationship between popularity and price of a listing is present. Plotting the two variables on log scale reveals that variability of average price is increasing as the listings become less popular (which really means less known, since it has fewer reviews).
+
+```{r popularity_on_price}
+ggplot(airbnb, aes(number_of_reviews, price)) + geom_point() + 
+           facet_wrap(~ neighbourhood_group )
+
+ggplot(airbnb, aes(log(number_of_reviews), log(price) )) + geom_point() + 
+           facet_wrap(~ neighbourhood_group )
+```
+
+On a finer scale, we are also interested in heterogeneity across neighbourhoods. There are in total `r length(unique(airbnb$neighbourhood))` distinct neighbourhoods. The following plots only show the total count of reviews and median listing prices for the 104 neighbourhoods that have more than 1,000 reviews total. 
+
+```{r}
+# Which neighbourhoods have more than 1000 reviews in total?
+ns_gt_1000 <- airbnb %>% 
+    group_by(neighbourhood) %>% 
+    summarise(sum_reviews = sum(number_of_reviews), 
+              med_price = median(price) ) %>% 
+    arrange(desc(sum_reviews)) %>% filter(sum_reviews > 1000)
+
+ggplot(ns_gt_1000) + geom_col(aes(neighbourhood, sum_reviews)) + 
+    theme(axis.text.x = element_text(colour = "black", angle = 90, size = 7))
+
+ggplot(ns_gt_1000) + geom_col(aes(neighbourhood, med_price)) + 
+    theme(axis.text.x = element_text(colour = "black", angle = 90, size = 7))
+```
+
+# Locations Matter for Price
+
+```{r}
+library(geoR)
+lm_data <- airbnb
+lm_data$price <- ifelse(lm_data$price==0, 5, lm_data$price)
+base_model <- lm(log(price) ~ minimum_nights + calculated_host_listings_count + 
+               room_type , data = lm_data)
+summary( stats::update(base_model, . ~ . + longitude + latitude) )
+anova( stats::update(base_model, . ~ . + longitude + latitude) )
+base_resids <- resid(base_model)
+coords <- as.matrix(lm_data[,c("longitude", "latitude")])
+```
+
