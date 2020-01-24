@@ -1,0 +1,60 @@
+---
+title: "Phuc Analysis"
+author: "Phuc Nguyen"
+date: "1/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Data issue
+
+Some with $0 price??
+tf-idf of words in name
+last-review: year from current year?
+number of reviews & review per month: one is redundant?
+years has been listed?
+availability_365? 0 availability but has review? max is only 365? 
+minimum nights of 4 years?
+
+## R spatial packages
+
+sp
+geoR
+spBayes
+lme4
+
+krig = regression
+
+## Brainstorm
+
+```{r}
+airbnb <- read.csv("AB_NYC_2019.csv")
+head(airbnb)
+```
+
+```{r}
+summary(airbnb)
+```
+
+```{r}
+plot(log(airbnb$price), log(airbnb$number_of_reviews))
+hist(airbnb$price, breaks=50)
+hist(log(airbnb$calculated_host_listings_count), breaks=50)
+hist(airbnb$availability_365)
+airbnb %>%
+  mutate(last_review_date = as.Date(last_review)) %>%
+  select(last_review_date) %>%
+  format("%Y")
+airbnb %>%
+  filter(availability_365 == 0) %>%
+  ggplot(aes(x= number_of_reviews)) + geom_histogram(bins=50)
+hist(airbnb$reviews_per_month, breaks = 60)
+hist(log(airbnb$minimum_nights), 100)
+```
+
+
+
