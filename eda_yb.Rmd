@@ -68,7 +68,7 @@ library(geoR)
 lm_data <- airbnb
 lm_data$price <- ifelse(lm_data$price==0, 5, lm_data$price)
 base_model <- lm(log(price) ~ minimum_nights + calculated_host_listings_count + 
-               room_type + neighbourhood_group, data = lm_data)
+               room_type + neighbourhood_group + availability_365, data = lm_data)
 summary( stats::update(base_model, . ~ . + longitude + latitude) )
 anova( stats::update(base_model, . ~ . + longitude + latitude) )
 base_resids <- resid(base_model)
@@ -83,3 +83,6 @@ v_b <- variog(data = r_b, coords = lm_data_b[,c("longitude", "latitude")])
 par(mfrow = c(1,2)); plot(v_m); plot(v_b)
 ```
 
+  - Dirichlet allocation (topic modeling) for strings
+  
+  
