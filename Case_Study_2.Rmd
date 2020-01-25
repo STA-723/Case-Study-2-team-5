@@ -1,0 +1,152 @@
+---
+title: "Case Study 2"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(reshape2)
+library(ggplot2)
+library(ggmosaic)
+library(dplyr)
+library(corrplot)
+
+```
+
+
+```{r}
+dat <- read.csv("AB_NYC_2019.csv", header = TRUE)
+
+# Split numbers and strings:
+col_str <- c("name", "host_name", "neighbourhood_group", "neighbourhood", "room_type",
+             "last_review")
+col_num <- names(dat)[!names(dat) %in% col_str]
+
+# Find column with missing values
+colnames(dat)[colSums(is.na(dat)) > 0] # reviews_per_month has NAs
+summary(dat$number_of_reviews[which(is.na(dat$reviews_per_month))])
+sum(dat$last_review[which(is.na(dat$reviews_per_month))]!="")
+# all missing values in reviews_per_month correspond to 0 in number_of_reviews and blank in last_review
+# fill in "reviews_per_month" with 0
+dat$reviews_per_month[which(is.na(dat$reviews_per_month))] <- 0
+
+# str(dat)
+
+# Drop useless columns
+drops <- c("id", "host_name", "host_id")
+dat <- dat[ , !(names(dat) %in% drops)]
+
+# Check unique values
+# unique(dat$neighbourhood_group)
+# unique(dat$neighbourhood)
+# unique(dat$room_type)
+```
+
+
+```{r}
+# EDA
+# Histograms for numeric variables
+d <- melt(dat[, names(dat) %in% col_num])
+ggplot(d,aes(x = value)) + 
+    facet_wrap(~variable,scales = "free_x") + 
+    geom_histogram()
+
+# Boxplots (remove extreme values to see distribution)
+ggplot(dat[dat$reviews_per_month<=20,], aes(x=neighbourhood_group, y=reviews_per_month, 
+                                  fill=neighbourhood_group)) + geom_boxplot()
+# Manhattan: highest price, fewest reviews
+
+# Correlation plot
+corrplot(cor(dat[, names(dat) %in% col_num])) 
+# only number_of_reviews & reviews_per_month have high correlation: expected
+
+# Check if all listings under one host_id are in the same borough # but neighbourhood??
+# table_host_borough <- table(dat$host_id, dat$neighbourhood_group)
+# dat$host_id[which(apply(as.matrix(table_host_borough), 1, function(x) sum(x!=0))!=1)]
+```
+
+
+```{r Price}
+# Boxplots - price by borough (remove extreme values)
+ggplot(dat[dat$price<=500,], aes(x=neighbourhood_group, y=price, 
+                                  fill=neighbourhood_group)) + geom_boxplot()
+
+anova(lm(price~neighbourhood,data=dat))
+anova(lm(price~neighbourhood_group,data=dat))
+```
+
+
+```{r Room Type}
+# Barplots & Mosaic plot - room type by borough
+ggplot(data=dat, aes(x = neighbourhood_group, y = room_type, fill = room_type)) +
+  geom_bar(stat="identity")
+
+# boroughs
+ggplot(data = dat) +
+  geom_mosaic(aes(x = product(room_type, neighbourhood_group), fill=room_type), na.rm=TRUE) +
+  labs(x="Boroughs", title='Room Type') 
+
+# all neighbourhood -> difficult to see
+ggplot(data = dat) +
+  geom_mosaic(aes(x = product(room_type, neighbourhood), fill=room_type), na.rm=TRUE) +
+  labs(x="Neighbourhood", title='Room Type') 
+
+# plot by boroughs
+ggplot(data = dat %>%
+         filter(neighbourhood_group=="Brooklyn")) +
+  geom_mosaic(aes(x = product(room_type, neighbourhood), fill=room_type), na.rm=TRUE) +
+  labs(x="Neighbourhood", title='Room Type') 
+
+ggplot(data = dat %>%
+         filter(neighbourhood_group=="Brooklyn"), 
+      aes(x = neighbourhood, y = room_type, fill = room_type)) +
+      geom_bar(stat="identity")
+```
+
+
+```{r}
+library(magick)
+library(grid)
+img <- image_read("New_York_City_.png")
+g <- rasterGrob(img)
+
+ggplot() +
+  annotation_custom(g) +
+  geom_point(data = dat, mapping = aes(x = longitude, y = latitude, colour = price),size=0.8)
+
+#ggmap
+
+```
+
+
+```{r Check availability and last review}
+availability <- dat$availability_365==0
+last_review_year <- as.numeric(substr(dat$last_review, start = 1, stop = 4))
+review_per_month <- dat$reviews_per_month
+# table(last_review_year, availability)
+# table(review_per_month, availability)
+```
+
+
+```{r mixed effect model}
+library(lme4)
+library(lmerTest)
+
+dat <- dat %>%
+      mutate(log_price = ifelse(price == 0, log(price + 5), log(price)))
+
+model <- lmer(log_price ~ latitude + longitude + room_type + reviews_per_month +
+                          calculated_host_listings_count + availability_365 + 
+                          (1 | neighbourhood_group) + (1 | neighbourhood), data = dat,
+                          REML=TRUE)
+summary(model)
+anova(model) # test fixed effect
+rand(model) # test random effect
+```
+
+
+```{r}
+
+```
+
+
