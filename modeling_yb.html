@@ -381,21 +381,20 @@ summary {
 </div>
 <div id="fitting-the-model" class="section level1">
 <h1>Fitting the Model</h1>
-<p>All of the above steps imply that we have reduced the sample size down to 1% of the original data. Still, we have a moderately large dataset for Bayesian model fitting, and computation can be difficult for even a simple multilevel model. As a preliminary step, we can quite easily fit a model that only includes one layer of random effects (neighbourhood or borough) and estimate the parameters by MLE. Since the number of boroughs is only 5, in the latter case we can even fit borough-varying effects for different predictors with relatively little computation. Besides the above mentioned variables of interest, <code>calculated_host_listings_count</code> is included as a predictor in the model.</p>
+<p>All of the above steps imply that we have reduced the sample size down to 1% of the original data. Still, we have a moderately large dataset for Bayesian model fitting, and computation can be difficult for even a simple multilevel model. As a preliminary step, we can quite easily fit through MLE two models: one with neighbourhood random effect only, and another with neighbourhood-effect nested within each borough. There does not seem to be a significant change in most of the estimated coefficients, and it does seem that our mixed effects model is already doing quite well.</p>
 <pre class="r"><code>library(lme4)</code></pre>
 <pre><code>## Loading required package: Matrix</code></pre>
 <pre class="r"><code># 1. Neighbourhood-varying intercept
 mod1 &lt;- lmer(price ~ 1 + reviews_per_month + room_type + minimum_nights + 
          last_review + calculated_host_listings_count + availability_365 + 
          (1|neighbourhood), data = data)
-# 2. Borough-varying intercept
+# 2. Borough-varying + Neighbourhood-varying w/in Borough
 mod2 &lt;- lmer(price ~ 1 + reviews_per_month + room_type + minimum_nights + 
-         last_review + calculated_host_listings_count + availability_365 + 
-         (1|neighbourhood_group), data = data)</code></pre>
-<p>Ideally, I want to also fit a model that has varying slopes for few select variables. Specifically, I believe there can be different effects for the host’s listing counts, as the <code>summary(mod2)</code> call shows that the significance of this variable is gone when we are conditioning on the borough’s effect. Estimating this is difficult through MLE, however, as Bronx and Staten Island have too few observations relative to the three others.</p>
-<pre class="r"><code>knitr::kable(summary(mod1)$coefficients, caption = &quot;Neighbourhood-varing intercept model&quot;, digits = 2)</code></pre>
+               last_review + calculated_host_listings_count + availability_365 + 
+               (1|neighbourhood_group/neighbourhood), data = data)
+knitr::kable(summary(mod1)$coefficients, caption = &quot;Neighbourhood-varing intercept&quot;, digits = 2)</code></pre>
 <table>
-<caption>Neighbourhood-varing intercept model</caption>
+<caption>Neighbourhood-varing intercept</caption>
 <thead>
 <tr class="header">
 <th></th>
@@ -455,9 +454,9 @@ mod2 &lt;- lmer(price ~ 1 + reviews_per_month + room_type + minimum_nights +
 </tr>
 </tbody>
 </table>
-<pre class="r"><code>knitr::kable(summary(mod2)$coefficients, caption = &quot;Borough-varying intercept model&quot;, digits = 2)</code></pre>
+<pre class="r"><code>knitr::kable(summary(mod2)$coefficients, caption = &quot;Borough/Neighbourhood-varying intercept&quot;, digits = 2)</code></pre>
 <table>
-<caption>Borough-varying intercept model</caption>
+<caption>Borough/Neighbourhood-varying intercept</caption>
 <thead>
 <tr class="header">
 <th></th>
@@ -469,75 +468,143 @@ mod2 &lt;- lmer(price ~ 1 + reviews_per_month + room_type + minimum_nights +
 <tbody>
 <tr class="odd">
 <td>(Intercept)</td>
-<td align="right">108.26</td>
-<td align="right">10.31</td>
-<td align="right">10.51</td>
+<td align="right">102.70</td>
+<td align="right">9.62</td>
+<td align="right">10.68</td>
 </tr>
 <tr class="even">
 <td>reviews_per_month</td>
 <td align="right">-0.01</td>
 <td align="right">0.00</td>
-<td align="right">-4.56</td>
+<td align="right">-2.45</td>
 </tr>
 <tr class="odd">
 <td>room_typePrivate room</td>
-<td align="right">-0.80</td>
+<td align="right">-0.74</td>
 <td align="right">0.01</td>
-<td align="right">-129.15</td>
+<td align="right">-123.36</td>
 </tr>
 <tr class="even">
 <td>room_typeShared room</td>
-<td align="right">-1.27</td>
+<td align="right">-1.19</td>
 <td align="right">0.02</td>
-<td align="right">-65.74</td>
+<td align="right">-64.87</td>
 </tr>
 <tr class="odd">
 <td>minimum_nights</td>
 <td align="right">0.00</td>
 <td align="right">0.00</td>
-<td align="right">-21.91</td>
+<td align="right">-24.29</td>
 </tr>
 <tr class="even">
 <td>last_review</td>
 <td align="right">-0.05</td>
-<td align="right">0.01</td>
-<td align="right">-10.03</td>
+<td align="right">0.00</td>
+<td align="right">-10.17</td>
 </tr>
 <tr class="odd">
 <td>calculated_host_listings_count</td>
 <td align="right">0.00</td>
 <td align="right">0.00</td>
-<td align="right">1.85</td>
+<td align="right">-4.54</td>
 </tr>
 <tr class="even">
 <td>availability_365</td>
 <td align="right">0.00</td>
 <td align="right">0.00</td>
-<td align="right">21.02</td>
+<td align="right">24.71</td>
 </tr>
 </tbody>
 </table>
+<p>Ideally, I want to also fit a model that has varying slopes for few select variables. Specifically, I believe there can be different effects for the host’s listing counts, as the <code>summary(mod2)</code> call shows that the significance of this variable is gone when we are conditioning on the borough’s effect. Estimating this is difficult through MLE, however, as Bronx and Staten Island have too few observations relative to the three others.</p>
 </div>
-<div id="spatially-correlated-errors" class="section level1">
-<h1>Spatially Correlated Errors</h1>
-<p>Another model we can try to fit will be inducing correlation structure in the error terms through a kernel that depends on the pairwise distance between each listing. This is a totally reasonable model given that usually for Airbnb listings, “locations matter,” and we would expect listings that are closer to each other will share many of the same desirable/undesirable features. The simplest such model would be an exponential variogram model that assumes <em>isotropic error</em>, which means that “direction doesn’t matter” in calculating the distances. So, e.g., for some location <span class="math inline">\(\mathbf{s}\)</span>, usually indexed by longitude and latitude (hence in <span class="math inline">\(\mathbb{R}^2\)</span>): <span class="math display">\[
-Cov(Y(\mathbf{s}+d),Y(\mathbf{s}))\equiv C(d) = \begin{cases}
-\tau^2 + \sigma^2 &amp;\text{if }d=0,\\
-\sigma^2\exp(-\phi d) &amp;\text{if }d&gt;0.
-\end{cases}
-\]</span> <span class="math inline">\(\tau^2\)</span> is usually referred to as the “nugget effect,” which can include measurement error, variance on a finer spatial scale, etc.,; <span class="math inline">\(\sigma^2\)</span> as the “partial sill” (the limiting covariance when <span class="math inline">\(d\to 0\)</span>); and <span class="math inline">\(\phi^{-1}\)</span> as the “range” (when <span class="math inline">\(\phi\to\infty\)</span> we have zero covariance). The entire procedure of regression modeling, which can be also simply a model with spatially varying intercept, is often referred to as “kriging.”</p>
-<p><code>gstat</code> package includes many useful functionalities for fitting such models with MLE-like procedures. Overall, however, I think Bayesian fitting is simply much more intuitive for spatial models.</p>
+<div id="non-evidence-of-spatial-correlation" class="section level1">
+<h1>Non-evidence of spatial correlation</h1>
+<p>If there were some minute-scale spatial correlation between these observations unaccounted for by the model (i.e., within neighbourhood), the <strong>semivariogram estimates</strong> (see: <a href="https://en.wikipedia.org/wiki/Variogram" class="uri">https://en.wikipedia.org/wiki/Variogram</a>) calculated from the residuals of the above model should display a clear pattern when plotted against pairwise distances. This does not seem to be the case; semivariograms look more or less constant in increasing pairwise distance, so it seems unwarranted that we overfit the model after conditioning on neighbourhood and borough effects. I would rather instead focus now on whether a Bayesian model fit returns different estimates, some sensitivity analyses, and the joint modeling of price and popularity variables as in below.</p>
 <pre class="r"><code>library(geoR)</code></pre>
 <pre><code>## --------------------------------------------------------------
 ##  Analysis of Geostatistical Data
 ##  For an Introduction to geoR go to http://www.leg.ufpr.br/geoR
 ##  geoR version 1.7-5.2.2 (built on 2016-05-02) is now loaded
 ## --------------------------------------------------------------</code></pre>
-<pre class="r"><code>library(gstat)</code></pre>
-<pre><code>## Registered S3 method overwritten by &#39;xts&#39;:
-##   method     from
-##   as.zoo.xts zoo</code></pre>
-<pre class="r"><code># Fit a model here....</code></pre>
+<pre class="r"><code>empirical_vs &lt;- variog(coords = data[,c(&quot;longitude&quot;, &quot;latitude&quot;)],
+                       data = resid(mod2))</code></pre>
+<pre><code>## variog: computing omnidirectional variogram
+## variog: co-locatted data found, adding one bin at the origin</code></pre>
+<pre class="r"><code>plot(empirical_vs) # In distance, the residuals are stable</code></pre>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABUAAAAPACAMAAADDuCPrAAAA3lBMVEUAAAAAADoAAGYAOjoAOmYAOpAAZmYAZrY6AAA6OgA6Ojo6OmY6ZmY6ZpA6ZrY6kJA6kLY6kNtmAABmADpmOgBmOjpmOmZmZjpmZmZmZpBmkLZmkNtmtrZmtttmtv+QOgCQOjqQZgCQZjqQZmaQkDqQkJCQkLaQtraQttuQ2/+2ZgC2Zjq2kDq2kGa2kLa2tpC2tra2ttu225C227a229u22/+2///bkDrbkGbbtmbbtpDbtrbbttvb25Db27bb29vb2//b/7bb////tmb/25D/27b/29v//7b//9v///8960lnAAAACXBIWXMAAB2HAAAdhwGP5fFlAAAgAElEQVR4nO3de2MTR76g4RYxiwJDdmFhx2EOcJbsmYAZL84uxAPZwTkYg/T9v9B262LLN1n9c7m6q/08fyS+yK2yLb90q6tL1RSAkKrrAQCUSkABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCBIQAGCBBQgSEABggQUIEhAAYIEFCCo3wGtAJJJn6jkW0yo6582MCzJG5V6gyndwD8YwK0loABBAgoQJKAAQQIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEECChAkoABBAnrhrW5moSpgWAT0ohspKLABAb3gNtWZNwAuIqDnb1KdvHmjgwEKJ6DrbqKgwBoCuu4mAgqsIaDrbiKgwBoCuu4mAgqsIaDrbiKgwBoCuu4mAgqsIaDnb2IaE7ARAb3gNibSA5sQ0Itu5FJOYAMCeuGt9BO4moACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQFCxAf32x977L62/SkCBdAoL6Oend36v/zfZHVeNrdctv15AgXSKCujkVVU1AZ28rJZ+arcXKqBAOiUFdNbNOqCz/4+2t7eb3dB7rTYhoEA6JQX0sO7lf/sy//+j5gOTf9QhfdNmEwIKpFNSQHcW3dw52e/cabkLKqBAOgUF9Pvj+e7m8v+Nr+PqbptnQQUUSKesgM5OwS//Pz3z9iYEFEinwIBOXgoo0AcFBbQ5+f6ieWPn5BD+sHIID3SloIBO9+ezQJsnPhdnjpqmPmqzCQEF0ikpoPXxerX1YTor6Xwa01vTmIDulBTQ6WEzc/7BrwcH/6hL+uzdq3HVcgdUQIGEigpoc/B+Rrt+CiiQUFkBPV5FZMFiIkCHCgto7du77af3aw9+/tVydkCXygvotQgokI6AAgQJKECQgAIEFR7Q9dfCn53z1Mg4OGDgBBQgaNABPU9AgXQKD+j028GfbW4uoEA6pQe0JQEF0hFQgCABBQgqMKCTgz/29vZ+O2h/JbyAAimVFtDPr1amJD183/bLBRRIp6yAHj05M6tz6027DQgokE5RAZ2tSF/d3577sXln9KLVFgQUSKekgDaviTRaXUL507hqN49eQIGESgro/rlcNkn1qpxARwoK6PHrwq/wuvBAdwoK6EXXvbsWHuiOgAIEFRTQ+hB+9ObMxxzCA90pKKDTnXO1bJ4WvddmEwIKpFNSQL+O64J+WPnAUd3PczulawkokE5JAW3mMdXF3P51r/FuPpO+1SwmAQUSKiqg04/jM5dyjp6324CAAumUFdDpZHc1oaNnbVdkElAgncICWpt83tvd3t5+tvc+sJ6dgALplBfQaxFQIB0BBQgSUIAgAQUIElCAIAEFCBJQgCABBQgSUIAgAQUIElCAIAEFCBJQgCABBQgSUIAgAQUIElCAIAEFCBJQgCABBQgSUIAgAQUIElCAIAEFCBJQgCABBQgSUIAgAQUIElCAIAEFCBJQgCABBQgSUIAgAQUIElCAIAEFCBJQgCABBQgSUIAgAQUIElCAIAEFCBJQgCABBQgSUIAgAQUIElCAIAEFCBJQgCABBQgSUIAgAQUIElCAIAEFCBJQgCABBQgSUIAgAQUIElCAIAEFCBJQgCABBQgSUIAgAQUIElCAIAEFCBJQgCABBQgSUICgfAH9trf325fp5M/U99eKgALp5Aroxx+rqrrz+/T7460Pqe+xBQEF0skU0LdVtQxoNXqT+i43J6BAOnkCul/Xc+s/xnVAJy+r6u6X1Pe5MQEF0skS0K/jqnpe73zWAZ0V9EXq+9yYgALpZAnoTlXdmy4COj2cvdMRAQXSyRHQeqezed5zEdB6d7S7Y3gBBdLJEdDvj5vTR8uALt7rhoAC6QgoQJBDeICgXCeRHh0HdN9JJGAYsgT0cDGHvglo/bZpTMAgZAloM/dz9LoJ6OQflYn0wEDkuRLp++PqhEs5gWHIdC18sw+6YDERYCCyLWd39KpZj2n08H3q+2tFQIF0LKgMECSgAEHZAjr5f8259+//4+/dnYKfCiiQUqaAHj2tltdxjv6W+h5bEFAgnTwBPRxXxwGdXZXUFQEF0sm2oPLop9mx+7e3nU4EFVAgnVzXwp9cfbTjWnhgGDKuxrRgNSZgIDKuB3rhe5kJKJCOgAIEZTqEX1nB7rDL5ZgEFEgny0mk/ZUz780Z+e7mMQkokE6WgM5mfz58fXBw8Mcr64ECQ5FnIn2z22k9UGBgcl3K+eq4nw+7vBheQIF08i0m8scv29vbP7/udC0RAQUSspwdQJCAAgQJKEBQroDOngFd+tlEemAAOpjGVLmUExiEbOuBCigwNLku5awe/Hpw7M/U97kxAQXSybWYSHdrKJ8ioEA6mZaz6/LyzVUCCqSTfz3QTgkokE6mQ3gBBYYn10mkF+c/ek2TP/Z+az2fVECBdHKtB5p+FzS0UQEF0sk2kX707CDt/Qgo0LFMJ5GSTKT/drDqcx3Q920nlQookE5BAT23mcDGBBRIJ0tAn94/7YGAAgNQ0nJ2H8dVNTpe0umv42r0l7ZLOwkokE5JAZ0evayqrQ+Ld5xEAjpWVECn03/Wu51/m78poEDHOgnoQXxB5aMnVXV3thMqoEDHMgV08u74ucv7P15rVv3kH1U1ej4VUKBzeQJ6mHJF+q9PZi8uL6BAxzpZkf7h9V4TafK23gl9LaBAx7KtSP/w3eNq9G+79d7j6PoLizQTmv4yFlCgU7lWpH80ne7M1mSqY3r3+i/K2UxoijwVIKBAOhlXpN+fZbSpaYq17f45FlCgWxlXpD+cvzLSYaIXSDr6JfD68gIKpJMxoF/Hs4P3+r0Ex/BBAgqkk/ElPRbl7PQVkgQUSCfLWfid2XOgJx0VUGAIck1jap72nJ+GP0xyGn5hfY0vWv0u1T0D5HpNpCaadTrvvP/X40QnkZZbFlCgI5ku5ZxNOZq8nDesOZ5PpO3zAQIKpJNpMZFPT2ZPfz6Z9fN5wnv75jWRgK5kXs7u0/b2s1bFS0xAgXQKW1D5ugQUSEdAAYIKDOjk4I+9vb3fQsvaCyiQzs0GdH6SPNHrws98frW6ruj71oMTUCCZsgJ69OTMlrbetBycgALJ3HBAn95/8Hvz39MeBAM6f2WQ+4sXV/pxNieq3dJ4AgqkU9JzoM2e7Oj1ygc+tV4TVECBdEoK6P65XDZJfdRmEwIKpJMloG+3Xp//YGsXrWXfdmUSAQXSybQeaIrL3y+67t218EB3Mq5If10CCvRLxhXpr+uiHVmH8EB3ci6ofF0752rZPC3aassCCqST5yz8x3G19evBdbf8dVwX9MPKB5pXh2/37KqAAulkOYT/ZfuvSa5E2p9Nnd/+da/xbj6TvtUsJgEFEsp0EinRpZwfx2e21HZxZgEF0skS0FSXctY7s7urCR09a7sik4AC6ZR0JdLc5PPe7vb29rO994H17AQUSKe8gF6LgALpCChAUCcBDS0mn4SAAulkCujk3fbS/R+TXJcUI6BAOnkCenh6+pGAAkOQJaBfz0zffOgQHhiAXNfCVw/fPa5G/7b7pPWrcCQloEA6mVZjaq643Jmth7zfcv2ktAQUSCfTpZzNkh/7s4xetK58PgIKpJNxQeXD+dJzh2nWtosRUCCdjAH9Op4dvNfvdXcML6BAOhlXpF+UM9ELfMQIKJBOlrPwO7PnQE86KqDAEOR8SY/5afi2L2OUlIAC6WQJaLOich3NOp133v/rsZNIwDBkupRzdvlmM4Nptg7ym9T3uTEBBdLJtJjIpyezpz+fRF6GIyUBBdLJvJzdp+3tZ3+mvscWBBRIx4LKAEFZ5oH+7+4ufj9DQIF0Ml2JtPW6Hw0VUCCdfK8L/+B96nsKEFAgnSzPgX56Mp++9PBD6jtrS0CBdHK9JtLuj/OGPuv2UF5AgXTynYX/tjt/YY9Onw4VUCCdrNOYjl6NvSYSMBi554F+fuVVOYGByBzQyaenAgoMRNaAzurZ6ZkkAQXSyRfQ2cF78wRol/NBBRRIJ1NAl6ePtl6nvrt2BBRIJ8u18IsJTF1PAp0KKJBStks5e3AZ0lRAgZQyBfRBx4fuSwIKpJPlEP63zg/dlwQUSMeCygBBAgoQdLMB/f64uepovh7oClciAUMgoABBNxzQp/cf/N7897QHAgoMgOdAAYIEFCBIQAGCBBQgKNeLyn36ZfvEz9YDBQYgT0A/jk1jAgYnS0APzQMFBihLQHeaheh/Ozj2Z+r73JiAAunkWg/0Ueq7iRFQIJ1MAe3uoP00AQXSybIe6EsBBQYo03Ogozep7yZGQIF0sgS0Poa/l/puYgQUSCfPPNCv4+qnXrysh4AC6eR6XfgnVfWD5eyAQcm2B2oiPTA0WQJ6pp8CCgxCriuRRs8OXIkEDEuuK5FepL6bGAEF0nElEkCQK5EAgrI8B7rvEB4YoCwBrXdB7/ZiHr2AAgnlmQdaF3Trfeo7ihBQYL3ldMvNbpv83s995PvT+/dnA3IlEtBzJxPWN7px8rs/95FmGpOJ9MANaLO/uOH2zryx/tap7vd4i+c+IqDAzWi1v7jZ9k7e3OTmae52ZYupN5iSgMKQtNtf3GiDF7+9wc3T6HWiBBQGpOX+4kZbvPjtDW6eRq8TJaAwIC1zl36L+QL6bW/vty/TSXcLiTQEFAbk1gT044/zk0ffH299SH2PLQgoDMhtCejb5dn37487fYE5AYUBuSUB3a/rufUf4zqgk5dVl5d1CigMyE0EtH/TmJoV6Z/XO5/N/M+moN2tLCKgMCDpA9rDifTNivT3pouATg+rDl/jWEBhQNJPY+rhpZz1TmfzvOcioPXuaHfH8AIKQ5J8Iv20h4uJzFekXwS00/XpBRQGJfWlnK3vPvkWz31EQIEb0mk/HcIDROU6ifToOKD7TiIBw5AloIeLOfRNQOu3TWMCBiHXayJVo9dNQCf/qEykBwYiz5VIp5ZUdiknMAyZroVv9kEXLCYCDES25eyOXjXrMY0edvvinAIKpGNBZYAgAQUIyhvQj+Oqeug5UGAYMgX005NmDui+s/DAgGRbULkOaLMsaLcvCy+gQELZFlSuqznLaDOh6VHq+9yYgALpZAno/uzqoyad9yyoDAxGxtWYmv3QF5azAwYj43qg+9ViVTsBBQYhY0B3qsW6ygIKDEK+gC6eArWgMjAUmZ4DrV4snwJdvERnRwQUSCfXWfit9/9zdgQ/WxDUgsrAEGQJ6HI50Efzt7rbARVQIKE8VyLNr0G6+2UW0J+6W5BeQIGEci2o/Gn752Yl0O//vdsFQQUUSMdydgBBAgoQJKBANsuXRut6HKkIKJDLyYvzdj2SRAQUyOQ4nIMpqIACeaxkcyh/iQIK5LH65zeQP0UBBfIQ0E22mHqDKQ3ktwZZJD7jI6CbbDH1BlMayG8Nckh9zlxAN9li6g2mNJDfGmSQ/Jy5gG6yxdQbTGkgvzW4eenPmQvoJltMvcFVk92n9//y95PlnNq+PshAfmtw89LnzjSmTbaYeoMr/jlbFq8aPVsmVEDhhtzA/qKJ9BtsMfUGT+wfP6e9fFUlAYUbchMH3C7lvHqLqTd4rFmWeev1wcHb5v/zbAoo3JAbecZyYP0sKqD7yz3PoyfLggoo3JABnvJJr6CAzl/c8/jNWUsFFG6IgG6goICuxnL5IvMdB3RoxyNwYoDnzNMrNKCzV6d71HVAB/eMOKwY3jnz9EoNaHNGafSm24B6fDFs9hCuVFBAV54DbRxW1Z0PXQbUEQ5Dp59XKSigzVn4e6ffvfN/Ow3ozWwXKEVJAW3mgT788+T9ndk/jsMKqH/yoSAlBXR2JdJqL98OLqCedErDT5E8igro9OP4dC/r9wcV0Nt6Wip1727pv0O38pvuWFkBnU4+/fzl1PtvxwMK6G09LZV+3d4S/h1Knrtb+s9GtwoL6HX1PaCpt1iE1L0r49+h5Lkr45+NoRHQa2zLerMpJP85FvFjTJ67Mv7ZGBwBvc7Gkv8NXPz2NTfa88O65N91CQH1r+9ACOi1tpb6ubuL377eNvte0Fsa0Ivf7tMW2UDhAV1/JVJ1gaR3n/xZrIvfvtYm0z8x1vfvuoSUCOhACGiPlHFev/f73SWkREAHYtABPa/fj6winhjr/zO/JaREQAei8IBOvx382ebmPX9k9T9OJUS+hPPRAjoQpQe0pb4/snp/eFxIkns/I7KEHyMbENB+6fsJmiKeFChi6kHy3BXwz8YACeigFRHQG+hd3/t5I7nr/z8bA1RgQCcHf+zt7f128OXqm55z2x5bZQS0gN6lH+IN5K6AH+PglBbQz69WpiQ9fN/2y2/bg6uAUz5lkDsuVFZAmxeEP2XrTbsN3LqHawHn9Uvg+UUuVlRAD8dNNO9vz/3YvDN6cfWXrbh9D//05/Vv4cneW/lNs4mSAtq8lPHo9coHPrVdT/k2Pvxv4PzMmTeG73budrOBkgK6fy6Xi1eH35xH//XdwpO9AsolCgromZc1njmsqrttzsZ79Cdw6/opoFymoIBedN37sK6Fp6cElEsIKFxFQLlEQQGtD+FHb858zCE8GQgolygooNOdc7Vsnha912YTHv0EmMbEJUoK6NdxXdAPKx84qvt5bqd0LQ9/Im7j3C02UVJAm3lMdTG3f91rvJvPpG81i0lAibmFc7fYRFEBnX4cn7mUc/S83QY8/onRTy5SVkCnk93VhI6etV2RyR8AkE5hAa1NPu/tbm9vP9t7H1jPTkCBdMoL6LUIKJCOgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBBUY0MnBH3t7e78dfAl8rYAC6ZQW0M+vqhMP37f9cgEF0ikroEdPqtO23rTbgIAC6RQV0MNxE83723M/Nu+MXrTagoAC6ZQU0O+P62C+XvnApzqod35vswkBBdIpKaD753LZJPVRm00IKJBOQQGdvKyqswfsh1V1t83ZeAEF0ikooPXu5rnj9Ys+to6AAukIKEBQQQGtD+FHb858zCE80J2CAjrdOVfL5mnRe202IaBAOiUF9Ou4LuiHlQ8c1f08t1O6loAC6ZQU0GYeU13M7V/3Gu/mM+lbzWISUCChogI6/Tg+cynn6Hm7DQgokE5ZAZ1OdlcTOnrWdkUmAQXSKSygtcnnvd3t7e1ne+8D69kJKJBOeQG9FgEF0hFQgCABBQgSUICgwgO6/lr46gIZBwcMnIACBA06oOcJKJBO4QGdfjv4s83NBRRIp/SAtiSgQDoCChAkoABBBQZ0cvDH3t7ebweBS+EFFEiotIB+frUyJenh+7ZfLqBAOmUF9OjJmVmdW2/abUBAgXSKCujhbDHQ+9tzswXpR2dfKX49AQXSKSmg3x/XwXy98oFPdVBbzaMXUCChkgK6fy6XTVJbvSiSgALpFBTQ5jWMzx6we114oDsFBfSi695dCw90R0ABggoKaH0IP3pz5mMO4YHuFBTQ6c65WjZPi95rswkBBdIpKaBfx3VBP6x84Kju57md0rUEFEinpIA285jqYm7/utd4N59J32oWk4ACCRUV0OnH8ZlLOUfP221AQIF0ygrodLK7mtDRs7YrMgkokE5hAa1NPu/tbm9vP9t7H1jPTkCBdMoL6LVc9DqdAFHJG5V6gyl1/cMGhiV5o1JvsBOFHuuXOewyR23YWRU67PaG8X0W+usqc9hljtqwsyp02O0N4/ss9NdV5rDLHLVhZ1XosNsbxvdZ6K+rzGGXOWrDzqrQYbc3jO+z0F9XmcMuc9SGnVWhw25vGN9nob+uModd5qgNO6tCh93eML7PQn9dZQ67zFEbdlaFDru9YXyfhf66yhx2maM27KwKHXZ7w/g+C/11lTnsMkdt2FkVOuz2hvF9FvrrKnPYZY7asLMqdNjtDeP7LPTXVeawyxy1YWdV6LDbG8b3Weivq8xhlzlqw86q0GG3N4zvs9BfV5nDLnPUhp1VocNubxjfZ6G/rjKHXeaoDTurQofd3jC+z0J/XWUOu8xRG3ZWhQ67vWF8n4X+usocdpmjNuysCh12e8P4Pgv9dZU57DJHbdhZFTrs9obxfRb66ypz2GWO2rCzKnTY7Q3j+yz011XmsMsctWFnVeiw27st3ydAcgIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEFFBvTo1biqRg8/tPtU564Y2/fHd37POp7NXD7qye79qqp+KO6H/elpM+xnX7KPaQNXPX6/jqsXOcezoUuHPXlZHevjwK+txIB+HM9/IaO/tflU564YW/1Q62NALx/18jNV9VMXA1vv8mEf/0mPevgHfdXj9/vjXnbo8mE3AxbQfjm8/Fey5lOdu2Jsk52qjwG9fNQrn6nudTO4y10+7F7vEl35+N3p46g3/Ivs4cATKC+gzb9pW/Wxwucn54qz5lOdu2Jss7/rvo153ahnn3k/nX9q9Kab4V1mzQ97vx5tc/T+r/pTd3t2FH/l4/ewlx1aN+z9Ho43qfICur984DfNebTppzq3fmyfZsdA/Qvo5aM+PN7vbD7Vs13Qy4ddf2BR+/rPvm/dv+rxOz8e7l2Q1g17p4cP6qSKC+jJX0DzhPqpfYg1n+rc2rEd1f90Vw+f9O+xtmbUOyd/ySX9sOv3l7Hv3c7RVY/f5lny/9W3Qa8fdv25fj00kisuoPW/wstfycpv7qpPdW7t2JrDyud9PIm02U905Vb9sNmwd/rWoquG3RS/d9VfP+z6cz07OEmtuIAerhwvnvkTWPOpzq0d2/7opy+9PAu/2U+0dwHdaNj1qHv2875i2PXu3aP+7TavH3b9uRdHzayxB6/zDyyLEgN6/DTL/rmAXvapzq0d27cmPz0N6AY/0cO+PQe6wbAnu+OePUKuGvb8aLhvj+vp+mHvV6O/Ls7BP+zVv7HJFBfQ1V/R4ennrNd8qnNXj62PAd3oJ9q/szFXDntnNmnxedZBXW39sHdmP+UeBnTdsHdWZjH16yglFQHNY7gBbSaw9msHdMOA/vC8Z3/Ra4e9+EBZAW1Oy88mjR29qnr2B5mKgOYx2ID28QKAq4Y9+ff7T8f92ydaN+zl88xlBXTl4GS/fw+TJAQ0j6EGdLaP8SbjkDax0QOhmTvWrz3n9cfC8wdHWQFd0TxQ+jbyFAQ0j4EG9KiHlyFt+kDo3XO3mzy0iw1oc7Ne/UUmUlxAh3gWfqaPAb1q1M0iElt9G/TGD4S+/UlfPuyT6f99e1xPN/5p922XJpESAzq4eaAzPQ3oulHXfy7VT/16HnFmwwdC3/6kLx/2fnVaIcM+e7NeDTuR4gI6xCuRlh/uXUDXj/pt3/6UlzZ8IPTtT/ryYfc6oBv+tHu475xCcQEd4rXwy1v0LqBrR73fx6c/Z9YMe/WwvW9HKZcPu9cB3eyn3btnnBMpLqDDXI1p2s+Arht1vf92p5dr0U/XDbv+E+/vxJoNHr993I9b+9Ne/Ih7OFs4jfICulyI8rL1QC/+VOeuHFsvA3r5qHM6jzgAAAV2SURBVHu9R3H5sGfTrp73dGr3Bo/fPgZ0g592HxeNTaO8gJ5f//rkb7moFenPJKiXAb181KePKvv2x3H5D/to5TUmerdLdNVjpJ8BXTPsr+OTT/XsX6tECgzo9J9nXoFl5VF29lN9smbYjX4G9LJRr74yRg8DuuaHPVt8daaHEwiueIz0NKBrhv11+dPu419kCiUG9OxrAK4+ygp6Vc4yAnrJqFdfLKyPAV33w56/KmeJj5G+BnTNsCeL10D9s6uh3bAiAwrQBwIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEECChAkoABBAgoQJKAAQQIKECSgAEECChAkoABBAgoQJKD00PfH1d0v0+nkZXXn9wtvcPQ684jgIgJKD10R0Mnb6lH2McF5AkoPXRHQw0pA6QUBpYcWAb2MgNITAkoPCShlEFB6SEApg4DSJ0evqmr005ezz4FOPt6vquqHZ38279T5nHnRvPNtt/nM6MH8rPzsCya7P9Yfefhhuc3Jx7PvN1/y4PWaQsNmBJQe2Z+n8e5/ng7o1/GimbMdz9WA7i8/Md9jbb7g/4xXA1t/8ZP5u6Pl+8vPb324eBCwMQGlP45z+F9OBbTeHz324lRAT/o5b2v9BSdGb5ptnnzx/P2TGF82xxQ2JqD0RtO6Zrfw43ixR7kIaJ3Jrff1549eLnY0l8+BNl/wU3NY//nJ8RfUoXz+pZkpurjNTvOB+mvrW9xb3sfr5jh+PP8AXIOA0hv7iz7O9hJXArqzPBxfHtIvA3p43MD6K5rPNAFd7FfuHwfzeE+0eeNweR8nn4EwAaUv6voti7Z/dg/07qnnK8+fha9ruAzo4jN1UptNnDR2f5bhnZNqOpfPtQkofbGIYGNRv0VAZ096jv7y9+PT5mfS9+2PX8bVMqDLPi42sX98Mml5H8fzo+pbOIbnegSUvliJ25lpTDvL00DzeUwrAZ18ejpeOSV0PqA7p4/TV89HVdXayaZwNQGlLxbJa5wJ6GT31Dymk4CunFLfLKCrXyCgXJuA0heX74HWPr1aKejqWfiq+uHBz7/+5+ONAyqapCOg9MWlz4EufHv3arHTuAzo/vFs+O+XBfT8c6Bmf5KOgNIXzSn0RexOnYVfyeiif4fH0+aXuTy87BD+1Eyne6v3AdcnoPTG8TzQ5tD89DzQxTmjywJ69PiygNb/W3xkvpX6Pu58OL4705i4HgGlN2ZXCb2fTj+duRKpmcZ0fMFRsz+5nA2/Mz+En59jajp5PqDLK5GaS5OWl4U2lypNv72tTKTnugSU/lhe5V7914unMS2vX5+fS39xcvvq8oCuTFx6dOo+KjugXJuA0iMf57OMzq7GdLJGyNab6fH7df7eHk8QnT+3eUFAZ1fBr+bycKyfpCKg9MnRq/FF64FOP79qsne8huekOR//U/3Gp6fNPKZnXxYniy4K6Hw90OrByXqguyuLi8J1CChAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShAkIACBAkoQJCAAgQJKECQgAIECShA0P8Hrvc2tHG7NNgAAAAASUVORK5CYII=" width="672" /></p>
+</div>
+<div id="bivariate-outcome-regression" class="section level1">
+<h1>Bivariate outcome regression</h1>
+<p>I want to try the following model: ordering the 1st response as price and 2nd response as monthly number of reviews (both on log-scale), we expect them to have a rather strong negative linear correlation from the EDA. A multivariate normal regression model would be: <span class="math display">\[
+\left(\begin{array}{c}
+Y_{1,i}\\ Y_{2,i} \end{array}\right) \stackrel{iid}{\sim} {\rm N}\left(
+\left(\begin{array}{c}
+\beta_1^T\mathbf{X}_i^T \\
+\beta_2^T\mathbf{X}_i^T
+\end{array}\right),
+\left(\begin{array}{cc}
+\sigma_1^2 &amp; \rho\sigma_1\sigma_2\\
+\rho\sigma_1\sigma_2 &amp; \sigma_2^2
+\end{array}\right)
+\right),\; i=1,2,\ldots,n.
+\]</span> We have strong prior belief that <span class="math inline">\(\rho\in (-1,0)\)</span>; however, I haven’t found yet a good way to make the prior distribution on the covariance to reflect this.</p>
+<p>I have looked up a few packages for implementing this, and concluded that I will just use a stan code to fit this model, since I ideally want to expand this to include the random effects above anyways. Of course, this model may take forever to fit / have convergence issues in the MCMC – I haven’t tried it yet. Note that Stan does not use Gibbs, so the choice of priors may look a bit wonky (but they are actually recommended by the authors of the program).</p>
+<pre class="r"><code>library(rstan)</code></pre>
+<pre><code>## Loading required package: StanHeaders</code></pre>
+<pre><code>## rstan (Version 2.19.2, GitRev: 2e1f913d3ca3)</code></pre>
+<pre><code>## For execution on a local, multicore CPU with excess RAM we recommend calling
+## options(mc.cores = parallel::detectCores()).
+## To avoid recompilation of unchanged Stan programs, we recommend calling
+## rstan_options(auto_write = TRUE)</code></pre>
+<pre><code>## For improved execution time, we recommend calling
+## Sys.setenv(LOCAL_CPPFLAGS = &#39;-march=native&#39;)
+## although this causes Stan to throw an error on a few processors.</code></pre>
+<pre class="r"><code>writeLines(readLines(&quot;./bv_regression.stan&quot;))</code></pre>
+<pre><code>## // A generic code for Bayesian regression w/ bivariate response
+## // see https://mc-stan.org/docs/2_21/stan-users-guide/multivariate-outcomes.html
+## // for details
+## data {
+##   int&lt;lower=0&gt; N; // Number of outcomes
+##   int&lt;lower=1&gt; P; // Number of predictors
+##   vector[2] y[N]; // Response (bivariate, each containing N samples)
+##   vector[P] x[N]; // Predictors (P-variate, each containing N observations)
+## }
+## parameters {
+##   matrix[2, P] beta; // 2 x P matrix of coefficients
+##   cholesky_factor_corr[2] L_Omega; // Cholesky factor of correlation matrix, Omega
+##   vector&lt;lower=0&gt;[2] L_sigma; // (Scaled) vector of 2 standard deviation parameters
+## }
+## model {
+##   // Stan does not implement Gibbs, so covariance prior is here not Wishart
+##   // Cholesky parametrization is for efficiency
+##   // LKJ prior is recommended by the Stan authors
+##   vector[2] mu[N]; // Linear predictor (normal mean)
+##   matrix[2, 2] L_Sigma; // Actual covariance matrix (Chol.-parametrized)
+##   
+##   for (n in 1:N)
+##     mu[n] = beta * x[n];
+##   L_Sigma = diag_pre_multiply(L_sigma, L_Omega);
+##   
+##   to_vector(beta) ~ normal(0, 1); // Must be scaled for this to work
+##   L_Omega ~ lkj_corr_cholesky(0.5); // 0 &lt; shape parameter &lt;1 favors strong correlation
+##   L_sigma ~ cauchy(0, 1); // Same; half-Cauchy
+##   
+##   y ~ multi_normal_cholesky(mu, L_Sigma);
+## }</code></pre>
+<pre class="r"><code># Dummy here; not actually run
+# I have checked the sampler does run for a few iterations!
+# Now want to check how long it takes to fit this model
+# stan(file = &quot;bv_regression.stan&quot;,
+#      data = list(
+#        N = nrow(data), P = 11,
+#        x = model.matrix(price ~ room_type + minimum_nights + last_review + 
+#                           calculated_host_listings_count + availability_365 + 
+#                           neighbourhood_group, 
+#                         data = data),
+#        y = as.matrix(data[,c(&quot;price&quot;, &quot;reviews_per_month&quot;)])
+#      ),
+#     chains = 1 , iter = 10)</code></pre>
 </div>
 
 

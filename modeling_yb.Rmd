@@ -38,7 +38,7 @@ data <- data %>%
   v. After excluding listings with no reviews, there still exist `r sum(airbnb[airbnb$number_of_reviews!=0,]$availability_365==0)` listings that say they are not available in any day at all. Based on the more or less even distribution of this variable, I believe these listings simply did not choose to specify this variable. I have not yet chosen what to do with these listings, so I have simply excluded them in the model fit stage below. Imputing a single value means I am drastically changing the distribution of this underlying predictor, for which I have a strong prior belief that it is uniform.
 
 # Fitting the  Model
-All of the above steps imply that we have reduced the sample size down to `r round(nrow(data)/nrow(airbnb), 0)`\% of the original data. Still, we have a moderately large dataset for Bayesian model fitting, and computation can be difficult for even a simple multilevel model. As a preliminary step, we can quite easily fit a model that only includes one layer of random effects (neighbourhood or borough) and estimate the parameters by MLE. Since the number of boroughs is only 5, in the latter case we can even fit borough-varying effects for different predictors with relatively little computation. Besides the above mentioned variables of interest, `calculated_host_listings_count` is included as a predictor in the model.
+All of the above steps imply that we have reduced the sample size down to `r round(nrow(data)/nrow(airbnb), 0)`\% of the original data. Still, we have a moderately large dataset for Bayesian model fitting, and computation can be difficult for even a simple multilevel model. As a preliminary step, we can quite easily fit through MLE two models: one with neighbourhood random effect only, and another with neighbourhood-effect nested within each borough. There does not seem to be a significant change in most of the estimated coefficients, and it does seem that our mixed effects model is already doing quite well.
 
 ```{r mle}
 library(lme4)
@@ -46,35 +46,60 @@ library(lme4)
 mod1 <- lmer(price ~ 1 + reviews_per_month + room_type + minimum_nights + 
          last_review + calculated_host_listings_count + availability_365 + 
          (1|neighbourhood), data = data)
-# 2. Borough-varying intercept
+# 2. Borough-varying + Neighbourhood-varying w/in Borough
 mod2 <- lmer(price ~ 1 + reviews_per_month + room_type + minimum_nights + 
-         last_review + calculated_host_listings_count + availability_365 + 
-         (1|neighbourhood_group), data = data)
-
+               last_review + calculated_host_listings_count + availability_365 + 
+               (1|neighbourhood_group/neighbourhood), data = data)
+knitr::kable(summary(mod1)$coefficients, caption = "Neighbourhood-varing intercept", digits = 2)
+knitr::kable(summary(mod2)$coefficients, caption = "Borough/Neighbourhood-varying intercept", digits = 2)
 ```
 
 Ideally, I want to also fit a model that has varying slopes for few select variables. Specifically, I believe there can be different effects for the host's listing counts, as the `summary(mod2)` call shows that the significance of this variable is gone when we are conditioning on the borough's effect. Estimating this is difficult through MLE, however, as Bronx and Staten Island have too few observations relative to the three others. 
 
-```{r}
-knitr::kable(summary(mod1)$coefficients, caption = "Neighbourhood-varing intercept model", digits = 2)
-knitr::kable(summary(mod2)$coefficients, caption = "Borough-varying intercept model", digits = 2)
-```
+# Non-evidence of spatial correlation
+If there were some minute-scale spatial correlation between these observations unaccounted for by the model (i.e., within neighbourhood), the **semivariogram estimates** (see: https://en.wikipedia.org/wiki/Variogram) calculated from the residuals of the above model should display a clear pattern when plotted against pairwise distances. This does not seem to be the case; semivariograms look more or less constant in increasing pairwise distance, so it seems unwarranted that we overfit the model after conditioning on neighbourhood and borough effects. I would rather instead focus now on whether a Bayesian model fit returns different estimates, some sensitivity analyses, and the joint modeling of price and popularity variables as in below.
 
-# Spatially Correlated Errors
-Another model we can try to fit will be inducing correlation structure in the error terms through a kernel that depends on the pairwise distance between each listing. This is a totally reasonable model given that usually for Airbnb listings, "locations matter," and we would expect listings that are closer to each other will share many of the same desirable/undesirable features. The simplest such model would be an exponential variogram model that assumes *isotropic error*, which means that "direction doesn't matter" in calculating the distances. So, e.g., for some location $\mathbf{s}$, usually indexed by longitude and latitude (hence in $\mathbb{R}^2$):
-$$
-Cov(Y(\mathbf{s}+d),Y(\mathbf{s}))\equiv C(d) = \begin{cases}
-\tau^2 + \sigma^2 &\text{if }d=0,\\
-\sigma^2\exp(-\phi d) &\text{if }d>0.
-\end{cases}
-$$
-$\tau^2$ is usually referred to as the "nugget effect," which can include measurement error, variance on a finer spatial scale, etc.,; $\sigma^2$ as the "partial sill" (the limiting covariance when $d\to 0$); and $\phi^{-1}$ as the "range" (when $\phi\to\infty$ we have zero covariance). The entire procedure of regression modeling, which can be also simply a model with spatially varying intercept, is often referred to as "kriging."
-
-`gstat` package includes many useful functionalities for fitting such models with MLE-like procedures. Overall, however, I think Bayesian fitting is simply much more intuitive for spatial models.
-```{r krig}
+```{r semivariogram, cache=T}
 library(geoR)
-library(gstat)
-# Fit a model here....
+empirical_vs <- variog(coords = data[,c("longitude", "latitude")],
+                       data = resid(mod2))
+plot(empirical_vs) # In distance, the residuals are stable
 ```
 
+# Bivariate outcome regression
+I want to try the following model: ordering the 1st response as price and 2nd response as monthly number of reviews (both on log-scale), we expect them to have a rather strong negative linear correlation from the EDA. A multivariate normal regression model would be:
+$$
+\left(\begin{array}{c}
+Y_{1,i}\\ Y_{2,i} \end{array}\right) \stackrel{iid}{\sim} {\rm N}\left(
+\left(\begin{array}{c}
+\beta_1^T\mathbf{X}_i^T \\
+\beta_2^T\mathbf{X}_i^T
+\end{array}\right),
+\left(\begin{array}{cc}
+\sigma_1^2 & \rho\sigma_1\sigma_2\\
+\rho\sigma_1\sigma_2 & \sigma_2^2
+\end{array}\right)
+\right),\; i=1,2,\ldots,n.
+$$
+We have strong prior belief that $\rho\in (-1,0)$; however, I haven't found yet a good way to make the prior distribution on the covariance to reflect this.
+
+I have looked up a few packages for implementing this, and concluded that I will just use a stan code to fit this model, since I ideally want to expand this to include the random effects above anyways. Of course, this model may take forever to fit / have convergence issues in the MCMC -- I haven't tried it yet. Note that Stan does not use Gibbs, so the choice of priors may look a bit wonky (but they are actually recommended by the authors of the program).
+
+```{r}
+library(rstan)
+writeLines(readLines("./bv_regression.stan"))
+# Dummy here; not actually run
+# I have checked the sampler does run for a few iterations!
+# Now want to check how long it takes to fit this model
+# stan(file = "bv_regression.stan",
+#      data = list(
+#        N = nrow(data), P = 11,
+#        x = model.matrix(price ~ room_type + minimum_nights + last_review + 
+#                           calculated_host_listings_count + availability_365 + 
+#                           neighbourhood_group, 
+#                         data = data),
+#        y = as.matrix(data[,c("price", "reviews_per_month")])
+#      ),
+#     chains = 1 , iter = 10)
+```
 
