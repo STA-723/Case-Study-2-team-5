@@ -1,0 +1,80 @@
+---
+title: "Regression Modeling"
+author: "Youngsoo Baek"
+date: "\\today"
+---
+
+Trying out a reasonable regression model (right now univariate, with response `price`). Ideally, we should be able to address heterogeneity in the types of listing across both neighbourhood (finer) and borough (coarser) scales. The most straightforward way to do this that I can think of is a multilevel modeling as implemented in `stanarm`. When regressing one on another, we scale the price and monthly reviews to log scale, as the dataset exhibits clear inverse relatinoship between the two.
+
+# Before fitting
+
+```{r prep, echo=F, include=F, message=F, warning=F}
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+options(mc.cores = parallel::detectCores())
+airbnb <- read.csv("./AB_NYC_2019.csv")
+airbnb[airbnb$price==0, "price"] <- 5 # All imputed by 10/2
+airbnb$minimum_nights <- ifelse(airbnb$minimum_nights > 365, 365, airbnb$minimum_nights)
+
+data <- airbnb[airbnb$number_of_reviews != 0,] # Exclude zero reviews
+# Logarithmic scale (where rel. is actually linear)
+data <- data %>% 
+    filter(availability_365 != 0) %>% # Simply exclude for now 
+    mutate(price = log(price), 
+                reviews_per_month = log(reviews_per_month),
+                last_review = year(ymd(last_review)))
+```
+
+
+  i. For log transformation of price and the monthly number of reviews, here I have excluded any listings that do not have any reviews (roughly `r round(sum(airbnb$number_of_reviews==0)/nrow(airbnb) * 100, 0)`\%).
+  
+  ii. Housings with zero price are considerd as having a nightly price of <\$10, and imputed \$5. There are only few such listings, so the analysis should be quite insensitive to our choice of action.
+  
+  iii. The year in which the last review was left is included in the model as a possible predictor.
+  
+  iv. There are `r sum(airbnb$minimum_nights > 100)` listings that specify minimum nights of stay for more than 100 days, and among them very few have minimum nights of more than a year. I believe those listings with minimum stay of more than 365 days are likely to be measurement errors and truncate them at 365.
+  
+  v. After excluding listings with no reviews, there still exist `r sum(airbnb[airbnb$number_of_reviews!=0,]$availability_365==0)` listings that say they are not available in any day at all. Based on the more or less even distribution of this variable, I believe these listings simply did not choose to specify this variable. I have not yet chosen what to do with these listings, so I have simply excluded them in the model fit stage below. Imputing a single value means I am drastically changing the distribution of this underlying predictor, for which I have a strong prior belief that it is uniform.
+
+# Fitting the  Model
+All of the above steps imply that we have reduced the sample size down to `r round(nrow(data)/nrow(airbnb), 0)`\% of the original data. Still, we have a moderately large dataset for Bayesian model fitting, and computation can be difficult for even a simple multilevel model. As a preliminary step, we can quite easily fit a model that only includes one layer of random effects (neighbourhood or borough) and estimate the parameters by MLE. Since the number of boroughs is only 5, in the latter case we can even fit borough-varying effects for different predictors with relatively little computation. Besides the above mentioned variables of interest, `calculated_host_listings_count` is included as a predictor in the model.
+
+```{r mle}
+library(lme4)
+# 1. Neighbourhood-varying intercept
+mod1 <- lmer(price ~ 1 + reviews_per_month + room_type + minimum_nights + 
+         last_review + calculated_host_listings_count + availability_365 + 
+         (1|neighbourhood), data = data)
+# 2. Borough-varying intercept
+mod2 <- lmer(price ~ 1 + reviews_per_month + room_type + minimum_nights + 
+         last_review + calculated_host_listings_count + availability_365 + 
+         (1|neighbourhood_group), data = data)
+
+```
+
+Ideally, I want to also fit a model that has varying slopes for few select variables. Specifically, I believe there can be different effects for the host's listing counts, as the `summary(mod2)` call shows that the significance of this variable is gone when we are conditioning on the borough's effect. Estimating this is difficult through MLE, however, as Bronx and Staten Island have too few observations relative to the three others. 
+
+```{r}
+knitr::kable(summary(mod1)$coefficients, caption = "Neighbourhood-varing intercept model", digits = 2)
+knitr::kable(summary(mod2)$coefficients, caption = "Borough-varying intercept model", digits = 2)
+```
+
+# Spatially Correlated Errors
+Another model we can try to fit will be inducing correlation structure in the error terms through a kernel that depends on the pairwise distance between each listing. This is a totally reasonable model given that usually for Airbnb listings, "locations matter," and we would expect listings that are closer to each other will share many of the same desirable/undesirable features. The simplest such model would be an exponential variogram model that assumes *isotropic error*, which means that "direction doesn't matter" in calculating the distances. So, e.g., for some location $\mathbf{s}$, usually indexed by longitude and latitude (hence in $\mathbb{R}^2$):
+$$
+Cov(Y(\mathbf{s}+d),Y(\mathbf{s}))\equiv C(d) = \begin{cases}
+\tau^2 + \sigma^2 &\text{if }d=0,\\
+\sigma^2\exp(-\phi d) &\text{if }d>0.
+\end{cases}
+$$
+$\tau^2$ is usually referred to as the "nugget effect," which can include measurement error, variance on a finer spatial scale, etc.,; $\sigma^2$ as the "partial sill" (the limiting covariance when $d\to 0$); and $\phi^{-1}$ as the "range" (when $\phi\to\infty$ we have zero covariance). The entire procedure of regression modeling, which can be also simply a model with spatially varying intercept, is often referred to as "kriging."
+
+`gstat` package includes many useful functionalities for fitting such models with MLE-like procedures. Overall, however, I think Bayesian fitting is simply much more intuitive for spatial models.
+```{r krig}
+library(geoR)
+library(gstat)
+# Fit a model here....
+```
+
+
