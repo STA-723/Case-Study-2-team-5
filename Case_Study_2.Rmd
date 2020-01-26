@@ -10,6 +10,8 @@ library(ggplot2)
 library(ggmosaic)
 library(dplyr)
 library(corrplot)
+library(lme4)
+library(lmerTest)
 
 ```
 
@@ -35,6 +37,10 @@ dat$reviews_per_month[which(is.na(dat$reviews_per_month))] <- 0
 # Drop useless columns
 drops <- c("id", "host_name", "host_id")
 dat <- dat[ , !(names(dat) %in% drops)]
+
+# log transform price
+dat <- dat %>%
+      mutate(log_price = ifelse(price == 0, log(price + 5), log(price)))
 
 # Check unique values
 # unique(dat$neighbourhood_group)
@@ -63,6 +69,9 @@ corrplot(cor(dat[, names(dat) %in% col_num]))
 # Check if all listings under one host_id are in the same borough # but neighbourhood??
 # table_host_borough <- table(dat$host_id, dat$neighbourhood_group)
 # dat$host_id[which(apply(as.matrix(table_host_borough), 1, function(x) sum(x!=0))!=1)]
+
+xtabs( ~ neighbourhood + neighbourhood_group, data = dat) 
+# neighbourhood_group & neighbourhood are nested
 ```
 
 
@@ -129,24 +138,77 @@ review_per_month <- dat$reviews_per_month
 
 
 ```{r mixed effect model}
-library(lme4)
-library(lmerTest)
-
-dat <- dat %>%
-      mutate(log_price = ifelse(price == 0, log(price + 5), log(price)))
-
-model <- lmer(log_price ~ latitude + longitude + room_type + reviews_per_month +
+lm_1 <- lmer(log_price ~ latitude + longitude + room_type + reviews_per_month +
                           calculated_host_listings_count + availability_365 + 
                           (1 | neighbourhood_group) + (1 | neighbourhood), data = dat,
                           REML=TRUE)
-summary(model)
-anova(model) # test fixed effect
-rand(model) # test random effect
+summary(lm_1)
+anova(lm_1) # test fixed effect
+rand(lm_1) # test random effect
+plot(lm_1) # residual plot
+
+```
+
+
+```{r}
+library(tidytext)
+data(stop_words)
+
+dat$name <- as.character(dat$name)
+name_df <- tibble(line = 1:nrow(dat), dat$name)
+
+tokens <- name_df %>%
+          unnest_tokens(word, dat$name) %>%
+          anti_join(stop_words)
+
+tokens %>%
+      count(word, sort = TRUE) %>%
+      filter(n > 3000) %>%
+      mutate(word = reorder(word, n)) %>%
+      ggplot(aes(word, n)) + 
+      geom_col() +
+      xlab(NULL) +
+      coord_flip()
 ```
 
 
 ```{r}
 
+```
+
+
+```{r, cache=TRUE}
+# library(caret)
+# set.seed(1)
+# train_index <- sample(1:nrow(dat), 0.9 * nrow(dat))
+# dat_train <- dat[train_index, ]
+# dat_test <- dat[-train_index, ]
+# # fit a random forest model (using ranger)
+# rf_fit <- train(log_price ~ latitude + longitude + room_type + reviews_per_month +
+#                           calculated_host_listings_count + availability_365 + 
+#                           neighbourhood_group + neighbourhood, data = dat_train,
+#                           method = "ranger")
+# rf_fit
+# rf_pred <- predict(rf_fit, dat_test)
+# dat_VarImp = varImp(rf_fit)
+
+library(randomForest)
+set.seed(1)
+train_index <- sample(1:nrow(dat), 0.9 * nrow(dat))
+dat_train <- dat[train_index, ]
+dat_test <- dat[-train_index, ]
+# fit a random forest model
+rf_fit <- randomForest(log_price ~ latitude + longitude + room_type + reviews_per_month +
+                          calculated_host_listings_count + availability_365 +
+                          neighbourhood_group, data = dat_train, 
+                          ntree = 500, mtry = 6,
+                          importance = TRUE) # cannot use neighbourhood: # levels > 53
+importance(rf_fit)
+varImpPlot(rf_fit)
+
+rf_pred <- predict(rf_fit, dat_test)
+plot(dat_test$log_price, rf_pred)
+abline(0,1,col="red")
 ```
 
 
