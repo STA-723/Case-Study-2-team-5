@@ -42,6 +42,10 @@ dat <- dat[ , !(names(dat) %in% drops)]
 dat <- dat %>%
       mutate(log_price = ifelse(price == 0, log(price + 5), log(price)))
 
+# log transform review_per_month
+dat <- dat %>%
+      mutate(log_review = ifelse(reviews_per_month == 0, log(reviews_per_month + 1), log(reviews_per_month)))
+
 # Check unique values
 # unique(dat$neighbourhood_group)
 # unique(dat$neighbourhood)
@@ -138,7 +142,7 @@ review_per_month <- dat$reviews_per_month
 
 
 ```{r mixed effect model}
-lm_1 <- lmer(log_price ~ latitude + longitude + room_type + reviews_per_month +
+lm_1 <- lmer(log_price ~ latitude + longitude + room_type +
                           calculated_host_listings_count + availability_365 + 
                           (1 | neighbourhood_group) + (1 | neighbourhood), data = dat,
                           REML=TRUE)
@@ -146,6 +150,16 @@ summary(lm_1)
 anova(lm_1) # test fixed effect
 rand(lm_1) # test random effect
 plot(lm_1) # residual plot
+
+
+lm_2 <- lmer(log_review ~ latitude + longitude + room_type +
+                          calculated_host_listings_count + availability_365 + 
+                          (1 | neighbourhood_group) + (1 | neighbourhood), data = dat,
+                          REML=TRUE)
+summary(lm_2)
+anova(lm_2) # test fixed effect
+rand(lm_2) # test random effect
+plot(lm_2) # residual plot
 
 ```
 
@@ -173,7 +187,17 @@ tokens %>%
 
 
 ```{r}
+library(corpus)
+library(Matrix)
 
+termMatrix <- term_matrix(dat$name)
+# how to use it?
+```
+
+
+```{r}
+library(spatialreg)
+# lagsarlm?
 ```
 
 
@@ -205,10 +229,32 @@ rf_fit <- randomForest(log_price ~ latitude + longitude + room_type + reviews_pe
                           importance = TRUE) # cannot use neighbourhood: # levels > 53
 importance(rf_fit)
 varImpPlot(rf_fit)
+# %IncMSE indicates the increase of the Mean Squared Error when given variable is randomly permuted.
 
 rf_pred <- predict(rf_fit, dat_test)
 plot(dat_test$log_price, rf_pred)
 abline(0,1,col="red")
 ```
 
+
+```{r}
+hist(dat$log_price) #4, 6
+dat <- dat %>%
+        mutate(price_ind = ifelse(log_price<4,"low",ifelse(log_price<6,"medium","high")))
+table(dat$price_ind)
+
+library(caret)
+set.seed(1)
+train_index <- sample(1:nrow(dat), 0.9 * nrow(dat))
+dat_train <- dat[train_index, ]
+dat_test <- dat[-train_index, ]
+# fit a random forest model (using ranger)
+rf_fit <- train(price_ind ~ latitude + longitude + room_type + reviews_per_month +
+                          calculated_host_listings_count + availability_365 +
+                          neighbourhood_group + neighbourhood, data = dat_train,
+                          method = "ranger")
+rf_fit
+rf_pred <- predict(rf_fit, dat_test)
+dat_VarImp = varImp(rf_fit)
+```
 
