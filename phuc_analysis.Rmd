@@ -11,6 +11,7 @@ library(tidyverse)
 library(lme4)
 library(topicmodels)
 library(stringr)
+library(tidytext)
 ```
 
 
@@ -35,7 +36,7 @@ summary(airbnb)
 max.minimum.nights <- 50
 cur.year <- 2020
 airbnb <- airbnb %>%
-  replace_na(reviews_per_month = 0) %>%
+  replace_na(list(reviews_per_month = 0)) %>%
   mutate(last_review_year = cur.year - as.numeric(format(as.Date(last_review), "%Y"))) %>%
   mutate(price = ifelse(price == 0, 5, price)) %>%
   mutate(has_reviews = number_of_reviews > 0)
@@ -158,8 +159,35 @@ lattice::dotplot(ranef(pop.mod, postVar = TRUE))
 
 ### LDA model
 
-```{r}
-
+```{r lda}
+words <-  tibble(txt = as.character(airbnb$name), doc = as.character(airbnb$id)) %>%
+  tidytext::unnest_tokens(word, txt) %>%
+  anti_join(stop_words) %>%
+  count(doc, word, sort = TRUE) %>%
+  ungroup()
+words_mat <- words %>%
+  cast_dtm(doc, word, n)
+names_lda <- LDA(words_mat, k = 4, control = list(seed = 123))
+topic_word <- tidy(names_lda, matrix = "beta")
+top_terms <- topic_word %>%
+  group_by(topic) %>%
+  top_n(5, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip() +
+  scale_x_reordered()
 ```
 
+Probability of each topic for each apartment name
+
+```{r}
+topic_doc <- tidy(names_lda, matrix = "gamma") %>%
+  spread(key = topic, value = gamma)
+topic_doc
+```
 
