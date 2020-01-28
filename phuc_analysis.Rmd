@@ -7,18 +7,41 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lme4)
+library(topicmodels)
+library(stringr)
 ```
 
 
 ## Data issue
 
-Some with $0 price??
+Some with $0 price? Because below 10 dollars?
 tf-idf of words in name
 last-review: year from current year?
 number of reviews & review per month: one is redundant?
 years has been listed?
 availability_365? 0 availability but has review? max is only 365? 
-minimum nights of 4 years?
+minimum nights of 4 years? data error
+
+```{r}
+airbnb <- read.csv("AB_NYC_2019.csv")
+summary(airbnb)
+```
+
+```{r clean-data}
+# Replace NA in review per month with 0
+# Add something to price $0 to take the log.
+max.minimum.nights <- 50
+cur.year <- 2020
+airbnb <- airbnb %>%
+  replace_na(reviews_per_month = 0) %>%
+  mutate(last_review_year = cur.year - as.numeric(format(as.Date(last_review), "%Y"))) %>%
+  mutate(price = ifelse(price == 0, 5, price)) %>%
+  mutate(has_reviews = number_of_reviews > 0)
+  #filter(minimum_nights <= max.minimum.nights)
+```
+
 
 ## R spatial packages
 
@@ -26,35 +49,117 @@ sp
 geoR
 spBayes
 lme4
-
 krig = regression
 
-## Brainstorm
+## EDA
 
-```{r}
-airbnb <- read.csv("AB_NYC_2019.csv")
-head(airbnb)
-```
-
-```{r}
-summary(airbnb)
-```
-
-```{r}
-plot(log(airbnb$price), log(airbnb$number_of_reviews))
+```{r, warning=F}
 hist(airbnb$price, breaks=50)
-hist(log(airbnb$calculated_host_listings_count), breaks=50)
-hist(airbnb$availability_365)
-airbnb %>%
-  mutate(last_review_date = as.Date(last_review)) %>%
-  select(last_review_date) %>%
-  format("%Y")
-airbnb %>%
-  filter(availability_365 == 0) %>%
-  ggplot(aes(x= number_of_reviews)) + geom_histogram(bins=50)
+hist(log(airbnb$price), breaks=50, freq=FALSE)
+points(x = log(airbnb$price), 
+      y = dnorm(log(airbnb$price), mean(log(airbnb$price)), sd = sd(log(airbnb$price))), 
+      col = "red", pch = 1)
+hist(airbnb$number_of_reviews, breaks=50)
+hist(log(airbnb$number_of_reviews), breaks=50)
 hist(airbnb$reviews_per_month, breaks = 60)
-hist(log(airbnb$minimum_nights), 100)
+hist(log(airbnb$reviews_per_month), breaks = 60)
+hist(airbnb$calculated_host_listings_count, breaks=50)
+hist(airbnb$availability_365)
+hist(airbnb$minimum_nights, 100)
+hist(airbnb$last_review_year, 100)
+ggplot(airbnb, aes(x = room_type)) + geom_bar()
+ggplot(airbnb, aes(x = neighbourhood_group)) + geom_bar()
+ggplot(airbnb, aes(x = neighbourhood)) + geom_bar()
+plot(log(airbnb$price), log(airbnb$number_of_reviews))
+# Some very expensive places still has reviews
+airbnb %>%
+  filter(price >= 8000) %>%
+  ggplot(aes(x=number_of_reviews)) + geom_histogram() +
+  title("For price > 8k")
+airbnb %>%
+  #filter(availability_365 == 0) %>%
+  mutate(availabled = ifelse(availability_365 == 0, "no", "yes")) %>%
+  ggplot(aes(x= number_of_reviews, fill = availabled)) + geom_histogram(bins=50, position = "dodge")
+ggplot(airbnb, aes(x = calculated_host_listings_count, y = log(price))) + geom_point()
+ggplot(airbnb, aes(x = log(calculated_host_listings_count), y = log(price))) + geom_point() + facet_grid(cols = vars(neighbourhood_group))
+ggplot(airbnb, aes(x = calculated_host_listings_count, y = log(reviews_per_month))) + geom_point()
+ggplot(airbnb, aes(x = calculated_host_listings_count, y = log(number_of_reviews))) + geom_point()
+ggplot(airbnb, aes(x = availability_365, y = log(price))) + geom_point()
+ggplot(airbnb, aes(x = availability_365, y = log(reviews_per_month))) + geom_point()
+ggplot(airbnb, aes(x = availability_365, y = log(number_of_reviews))) + geom_point()
+ggplot(airbnb, aes(x = minimum_nights, y = log(price))) + geom_point()
+ggplot(airbnb, aes(x = minimum_nights, y = log(reviews_per_month))) + geom_point()
+ggplot(airbnb, aes(x = minimum_nights, y = log(number_of_reviews))) + geom_point()
+ggplot(airbnb, aes(x = last_review_year, y = log(price))) + geom_point()
+ggplot(airbnb, aes(x = last_review_year, y = log(reviews_per_month))) + geom_point()
+ggplot(airbnb, aes(x = last_review_year, y = log(number_of_reviews))) + geom_point()
+ggplot(airbnb, aes(x = room_type, y = log(price))) + geom_boxplot()
+ggplot(airbnb, aes(x = room_type, y = log(reviews_per_month))) + geom_boxplot()
+ggplot(airbnb, aes(x = neighbourhood_group, y = log(price))) + geom_boxplot()
+ggplot(airbnb, aes(x = neighbourhood_group, y = log(reviews_per_month))) + geom_boxplot()
 ```
 
+Number of reviews and review per months are both not normal even after log transformation. Maybe need Poisson model?
+
+Seems like availability_365 is not correlated with either price or number of reviews. Maybe reviews_per_month has a quadratic relationship with this??
+
+## Modeling
+
+### Correlated random effect for log(price)
+
+```{r price-mod, cache=T}
+price.mod <- lmer(log(price) ~ (1 | neighbourhood_group) + 
+                    (number_of_reviews | neighbourhood_group) +
+                    (room_type | neighbourhood_group) + 
+                    last_review_year + 
+                    minimum_nights + 
+                    (calculated_host_listings_count | neighbourhood_group) +  
+                    availability_365,
+                  airbnb)
+# price.mod.neigh <- lmer(log(price) ~ (1 | neighbourhood_group / neighbourhood) + 
+#                     (number_of_reviews | neighbourhood_group / neighbourhood) +
+#                     (room_type | neighbourhood_group / neighbourhood) + 
+#                     last_review_year + 
+#                     minimum_nights + 
+#                     (calculated_host_listings_count | neighbourhood_group / neighbourhood) +  
+#                     availability_365,
+#                   airbnb)
+```
+
+```{r}
+summary(price.mod)
+```
+
+```{r}
+summary(price.mod.neigh)
+```
+
+### Correlated random effect overdispersed Poisson model number_of_reviews or reviews_per_month
+
+```{r pop-mod, cache=T}
+pop.mod <- glmer(number_of_reviews ~ (1 | neighbourhood_group) + 
+                    (price | neighbourhood_group) +
+                    (room_type | neighbourhood_group) + 
+                    last_review_year + 
+                    minimum_nights + 
+                    (calculated_host_listings_count | neighbourhood_group) +  
+                    availability_365,
+                 data = airbnb,
+                 family = poisson(link = "log"))
+```
+
+```{r}
+summary(pop.mod)
+plot(ranef(pop.mod))
+lattice::dotplot(ranef(pop.mod, postVar = TRUE))
+```
+
+### tf-idf word model
+
+### LDA model
+
+```{r}
+
+```
 
 
