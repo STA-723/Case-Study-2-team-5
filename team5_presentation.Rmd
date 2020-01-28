@@ -1,0 +1,17 @@
+---
+title: "Exploratory Analysis of Data for Airbnb Listings in NYC"
+author: "Youngsoo Baek, Irene Yi Ji, Phuc Nguyen"
+output: beamer_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Exploring the Data
+
+## Text Analysis for Listing Names
+
+## Regression Model for Price and Popularity
+
+## Further Work
