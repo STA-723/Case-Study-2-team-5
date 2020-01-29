@@ -1,0 +1,152 @@
+---
+title: "Case Study 2"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(reshape2)
+library(ggplot2)
+library(ggmosaic)
+library(dplyr)
+library(corrplot)
+library(lme4)
+library(lmerTest)
+library(lubridate)
+```
+
+
+```{r}
+# Dataset we are using (ref. to as airbnb)
+airbnb <- read.csv("./AB_NYC_2019.csv") %>% 
+    mutate(price = ifelse(price==0, 5, price),
+           reviews_per_month = ifelse(is.na(reviews_per_month), 0, reviews_per_month),
+           last_review = 2019 - year(ymd(last_review)),
+           available_spec = (availability_365 != 0) ) %>%
+    # available_spec does not actually mean "available," but rather two diff. groups
+    # that have specified the variable or not
+    # Whichever listings without any review will have NA values!
+    filter(minimum_nights <= 365)
+```
+
+
+```{r}
+dat <- airbnb
+
+# Drop useless columns
+drops <- c("id", "host_name", "host_id")
+dat <- dat[ , !(names(dat) %in% drops)]
+
+# log transform price
+dat <- dat %>%
+      mutate(log_price = log(price))
+
+# log transform review_per_month
+dat <- dat %>%
+      mutate(log_review = ifelse(reviews_per_month == 0, log(reviews_per_month + 1), log(reviews_per_month)))
+
+# Split numbers and strings:
+col_str <- c("name", "host_name", "neighbourhood_group", "neighbourhood", "room_type",
+             "last_review", "available_spec")
+col_num <- names(dat)[!names(dat) %in% col_str]
+```
+
+
+```{r Histograms}
+# Histograms for numeric variables
+d <- melt(dat[, names(dat) %in% col_num])
+ggplot(d,aes(x = value)) + 
+    facet_wrap(~variable,scales = "free_x") + 
+    geom_histogram()
+```
+
+```{r Reviews}
+# Boxplots (remove extreme values to see distribution)
+ggplot(dat[dat$reviews_per_month<=10,], aes(x=neighbourhood_group, y=reviews_per_month, 
+                                  fill=neighbourhood_group)) + geom_boxplot()
+# Manhattan: highest price, fewest reviews
+```
+
+
+```{r Price}
+# Boxplots - price by borough (remove extreme values)
+ggplot(dat[dat$price<=500,], aes(x=neighbourhood_group, y=price, 
+                                  fill=neighbourhood_group)) + geom_boxplot()
+```
+
+
+```{r Room Type}
+# boroughs
+ggplot(data = dat) +
+  geom_mosaic(aes(x = product(room_type, neighbourhood_group), fill=room_type), na.rm=TRUE) +
+  labs(x="Boroughs", title='Room Type') 
+```
+
+
+```{r Map}
+
+```
+
+
+```{r mixed effect model}
+# Logprice: Borough-varying + Neighbourhood-varying w/in Borough
+mod1 <- lmer(log_price ~ 1 + reviews_per_month + room_type + minimum_nights + 
+               last_review + calculated_host_listings_count + availability_365 + 
+               (1|neighbourhood_group/neighbourhood), data = dat)
+summary(mod1)
+anova(mod1)
+rand(mod1)
+plot(mod1)
+
+# Test 1
+# running glmer on number_of_reviews require variables to be scaled ("large eigenvalues").
+dat0 <- dat
+dat0[,names(dat0) %in% col_num & names(dat0)!="number_of_reviews"] <- scale(dat0[,names(dat0) %in% col_num])
+
+mod2 <- glmer(number_of_reviews ~ 1 + log_price + room_type + minimum_nights + 
+               last_review + calculated_host_listings_count + availability_365 + 
+               (1|neighbourhood_group/neighbourhood), data = dat0, family = poisson)
+summary(mod2)
+anova(mod2)
+plot(mod2)
+# residual plot is bad -> zero-inflation?
+
+# Test 2
+library(glmmTMB)
+nbm1 <- glmmTMB(number_of_reviews ~ 1 + log_price + room_type + minimum_nights + 
+               last_review + calculated_host_listings_count + availability_365 + 
+               (1|neighbourhood_group/neighbourhood), data = dat0, 
+               ziformula = ~1, family = poisson)
+summary(nbm1)
+
+# Model Checking
+# https://cran.r-project.org/web/packages/glmmTMB/vignettes/model_evaluation.html
+library(DHARMa)
+nbm1_simres <- simulateResiduals(nbm1)
+plot(nbm1_simres)
+```
+
+
+```{r, cache=TRUE}
+library(randomForest)
+set.seed(1)
+train_index <- sample(1:nrow(dat), 0.9 * nrow(dat))
+dat_train <- dat[train_index, ]
+dat_test <- dat[-train_index, ]
+# fit a random forest model
+rf_price <- randomForest(log_price ~ latitude + longitude + room_type + reviews_per_month +
+                          calculated_host_listings_count + availability_365 + minimum_nights +
+                          neighbourhood_group + last_review, data = dat_train, 
+                          ntree = 500, mtry = 6,
+                          importance = TRUE) # cannot use neighbourhood: # levels > 53
+importance(rf_price)
+varImpPlot(rf_price)
+# %IncMSE indicates the increase of the Mean Squared Error when given variable is randomly permuted.
+
+rf_pred <- predict(rf_price, dat_test)
+plot(dat_test$log_price, rf_pred)
+abline(0,1,col="red")
+```
+
+
+

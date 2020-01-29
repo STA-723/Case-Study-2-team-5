@@ -161,6 +161,10 @@ anova(lm_2) # test fixed effect
 rand(lm_2) # test random effect
 plot(lm_2) # residual plot
 
+
+lm_3 <- glmer(number_of_reviews ~ room_type + calculated_host_listings_count + availability_365 + 
+                          (1 | neighbourhood_group) + (1 | neighbourhood), data = dat,
+                          family = poisson)
 ```
 
 
