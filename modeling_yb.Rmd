@@ -103,3 +103,20 @@ writeLines(readLines("./bv_regression.stan"))
 #     chains = 1 , iter = 10)
 ```
 
+Alternatively, using `lme4` in a hacky way to just maximize the likelihood (code idea from https://mac-theobio.github.io/QMEE/MultivariateMixed.html):
+
+```{r}
+# Dataset must be modified to "trick" lme4
+data_mv <- data %>% select(price, reviews_per_month) %>% 
+  reshape2::melt()
+data_mv <- cbind.data.frame(data_mv, (data %>% select(-price, -reviews_per_month)))
+# Use the "long format" dataset and put variable label as a predictor
+mod3 <- lmer(value ~ variable:(1+room_type+minimum_nights+last_review+
+                                 calculated_host_listings_count+availability_365)+
+               (variable-1|neighbourhood_group/neighbourhood) + 
+               (variable-1|neighbourhood_group), 
+             data = data_mv,
+             control = lmerControl(optCtrl = list(ftol_abs = 1e-10)))
+```
+
+COME BACK: Above code causes error. Make sure I have put the predictors on similar scale, and consider what numerical issues I'm having. I still have enough time to use Stan.
