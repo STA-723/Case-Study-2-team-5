@@ -155,8 +155,6 @@ plot(ranef(pop.mod))
 lattice::dotplot(ranef(pop.mod, postVar = TRUE))
 ```
 
-### tf-idf word model
-
 ### LDA model
 
 ```{r lda}
@@ -190,4 +188,47 @@ topic_doc <- tidy(names_lda, matrix = "gamma") %>%
   spread(key = topic, value = gamma)
 topic_doc
 ```
+
+### TODO: 
+
+Association between "topics" and price and popularity. Then we can describe higher associate with these words.
+
+But maybe marginally these topics are interesting but they just describe the neighborhoods so when accounting for neighborhoods they don't make any difference?
+
+### Basics
+
+1. Summarize average price for each word
+
+```{r}
+word_merge <- words %>%
+  mutate(id = as.numeric(doc)) %>%
+  inner_join(airbnb %>% select(id, price, reviews_per_month),
+             by = "id")
+word_price <- word_merge %>%
+  group_by(word) %>%
+  summarise(avg_price = mean(price), count = n(), weight_price = sum(tf_idf * price)) %>%
+  arrange(desc(weight_price))
+head(word_price, 10)
+```
+
+
+### tf-idf word model
+
+```{r}
+words <- words %>%
+  bind_tf_idf(word, doc, n) %>%
+  arrange(doc, tf_idf)
+words_top3 <- words %>%
+  group_by(doc) %>%
+  top_n(3)
+```
+
+Summarize average price and review per month
+
+
+
+
+
+
+
 
