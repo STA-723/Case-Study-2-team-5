@@ -1,14 +1,19 @@
-// A generic code for Bayesian regression w/ bivariate response
-// see https://mc-stan.org/docs/2_21/stan-users-guide/multivariate-outcomes.html
+// Code for Bayesian regression w/ bivariate response and nested groups
+// see https://mc-stan.org/docs/2_21/stan-users-guide/hierarchical-logistic-regression.html
+// and https://mc-stan.org/docs/2_21/stan-users-guide/multivariate-outcomes.html
 // for details
 data {
   int<lower=0> N; // Number of outcomes
   int<lower=1> P; // Number of predictors
+  int<lower=1> J; // Number of group 1 (neighbourhood, nested in group 2)
+  int<lower=1> K; // Number of group 2 (borough)
+  int<lower=1,upper=J> group1;
+  int<lower=1,upper=K> group2;
   vector[2] y[N]; // Response (bivariate, each containing N samples)
   vector[P] x[N]; // Predictors (P-variate, each containing N observations)
 }
 parameters {
-  matrix[2, P] beta; // 2 x P matrix of coefficients
+  matrix[2,P] beta; // 2 x P matrix of coefficients
   cholesky_factor_corr[2] L_Omega; // Cholesky factor of correlation matrix, Omega
   vector<lower=0>[2] L_sigma; // (Scaled) vector of 2 standard deviation parameters
 }
@@ -17,7 +22,7 @@ model {
   // Cholesky parametrization is for efficiency
   // LKJ prior is recommended by the Stan authors
   vector[2] mu[N]; // Linear predictor (normal mean)
-  matrix[2, 2] L_Sigma; // Actual covariance matrix (Chol.-parametrized)
+  matrix[2,2] L_Sigma; // Actual covariance matrix (Chol.-parametrized)
   
   for (n in 1:N)
     mu[n] = beta * x[n];
