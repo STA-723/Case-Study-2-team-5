@@ -1,0 +1,144 @@
+---
+title: "Exploratory Analysis of Data for Airbnb Listings in NYC"
+author: "Youngsoo Baek, Irene Yi Ji, Phuc Nguyen"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+# Dataset we are using (ref. to as airbnb)
+# airbnb <- read.csv("./AB_NYC_2019.csv") %>% 
+#     mutate(price = ifelse(price==0, 5, price),
+#            reviews_per_month = ifelse(is.na(reviews_per_month), 0, reviews_per_month),
+#            last_review = 2019 - year(ymd(last_review)),
+#            available_spec = (availability_365 != 0) ) %>%
+#     # available_spec does not actually mean "available," but rather two diff. groups
+#     # that have specified the variable or not
+#     # Whichever listings without any review will have NA values!
+#     filter(minimum_nights <= 365)
+```
+
+## Exploratory Analysis
+
+```{r, include=FALSE}
+airbnb <- read.csv("./AB_NYC_2019.csv")
+# airbnb <- airbnb %>% mutate(reviews_per_month = ifelse(is.na(reviews_per_month), 0, reviews_per_month))
+names(airbnb)
+summary(airbnb)
+
+# check host_id & host_listings_count
+airbnb %>% group_by(host_id) %>% summarise(n=n()) %>% arrange(desc(n))
+max(airbnb$calculated_host_listings_count)
+```
+
+```{r}
+# price by boroughs
+library(xtable)
+# xtable(airbnb %>% group_by(neighbourhood_group) %>% 
+#     summarise(median = round(median(price),0), Q1 = round(quantile(price, 0.25),0),
+#               Q3 = round(quantile(price, 0.75),0), max = round(max(price),0)))
+airbnb %>% group_by(neighbourhood_group) %>% 
+    summarise(median = round(median(price),0), Q1 = round(quantile(price, 0.25),0),
+              Q3 = round(quantile(price, 0.75),0), max = round(max(price),0))
+airbnb %>% 
+    summarise(median = round(median(price),0), Q1 = round(quantile(price, 0.25),0),
+              Q3 = round(quantile(price, 0.75),0), max = round(max(price),0))
+
+
+ggplot(airbnb[airbnb$price<=500,], aes(x=neighbourhood_group, y=price, fill=neighbourhood_group)) +
+            geom_boxplot() + 
+            ggtitle("Price by Boroughs (price<=500)")
+
+# chi-square test
+airbnb <- airbnb %>% mutate(price_level = ifelse(price<=quantile(price, 0.25), "below Q1", ifelse(price<=quantile(price, 0.75), "between Q1 and Q3", "above Q3")))
+airbnb$price_level <- factor(airbnb$price_level, levels = c("below Q1", "between Q1 and Q3", "above Q3"))
+
+table_price_borough <- table(airbnb$price_level, airbnb$neighbourhood_group)
+table_price_borough
+chisq.test(table_price_borough)
+
+library(ggmosaic)
+ggplot(data = airbnb) +
+  geom_mosaic(aes(x = product(price_level, neighbourhood_group), fill=price_level), na.rm=TRUE) +
+  labs(x="Boroughs", title='Price Level') + ggtitle("Price Level by Boroughs") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+A p-value less than the signficiance level of 0.05 tells us that these groups show statistically significant differences in their distributions between the 5 categories. The samples are heterogeneous.
+
+As shown in the boxplot, Manhattan has the highest price.
+
+```{r}
+table_price_ngh <- table(airbnb$price_level, airbnb$neighbourhood)
+# table_price_ngh
+min(table_price_ngh)
+chisq.test(table_price_ngh)
+# many neighbourhoods have 0 or <5 listings, chi-squre test may not be accurate
+
+# ggmap?
+```
+
+```{r}
+# review by boroughs
+library(xtable)
+airbnb %>% filter(last_review!="") %>%
+    group_by(neighbourhood_group) %>% 
+    summarise(median = round(median(reviews_per_month),0), Q1 = round(quantile(reviews_per_month, 0.25),0), Q3 = round(quantile(reviews_per_month, 0.75),0), max = round(max(reviews_per_month),0))
+
+airbnb %>% filter(last_review!="") %>%
+    summarise(median = round(median(reviews_per_month),0), Q1 = round(quantile(reviews_per_month, 0.25),0), Q3 = round(quantile(reviews_per_month, 0.75),0), max = round(max(reviews_per_month),0))
+
+ggplot(airbnb[airbnb$reviews_per_month<=10 & airbnb$last_review!="",], aes(x=neighbourhood_group, y=reviews_per_month, fill=neighbourhood_group)) + geom_boxplot() + ggtitle("Reviews per Month by Boroughs (reviews <=10)")
+
+# chi-square test
+airbnb <- airbnb %>% filter(last_review!="") %>% mutate(popularity_level = ifelse(reviews_per_month<=quantile(reviews_per_month, 0.25), "below Q1", ifelse(reviews_per_month<=quantile(reviews_per_month, 0.75), "between Q1 and Q3", "above Q3")))
+airbnb$popularity_level <- factor(airbnb$popularity_level, levels = c("below Q1", "between Q1 and Q3", "above Q3"))
+
+table_pop_borough <- table((airbnb%>% filter(last_review!=""))$popularity_level, (airbnb%>% filter(last_review!=""))$neighbourhood_group)
+table_pop_borough
+chisq.test(table_pop_borough)
+
+library(ggmosaic)
+ggplot(data = airbnb %>% filter(last_review!="")) +
+  geom_mosaic(aes(x = product(popularity_level, neighbourhood_group), fill=popularity_level), na.rm=TRUE) +
+  labs(x="Boroughs", title='Popularity Level') + ggtitle("Popularity Level by Boroughs") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+According to the chi-square test, there is still heterogeity among boroughs regarding popularity of listings. However, as shown in the boxplot and mosaic plot, the difference is not as significant as price. Manhattan has the lowest popularity, in terms of monthly review rate.
+
+```{r}
+table_pop_ngh <- table((airbnb%>% filter(last_review!=""))$popularity_level, (airbnb%>% filter(last_review!=""))$neighbourhood)
+# table_pop_ngh
+min(table_pop_ngh)
+chisq.test(table_pop_ngh)
+# many neighbourhoods have 0 or <5 listings, chi-squre test may not be accurate
+
+# ggmap?
+```
+
+
+## Response of Interest: Price and Popularity
+
+## Choosing a Meaningful Measure of Popularity
+
+## Heterogeneity across Neighbourhoods/Boroughs
+
+## Spatial Correlation
+
+## Predictors of Interest
+
+## Possibly Unreliable Predictors
+
+## Modeling
+
+## Price and Popularity: Bivariate Mixed Effects Regression
+
+## Did We Miss Spatial Correlation Within Neighbourhoods?
+
+## Text Analysis for Listing Names
+
+## Further Work

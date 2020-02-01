@@ -5,10 +5,6 @@ output: beamer_presentation
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
-```
-
-```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 library(dplyr)
 library(ggplot2)
@@ -25,10 +21,28 @@ airbnb <- read.csv("./AB_NYC_2019.csv") %>%
     filter(minimum_nights <= 365)
 ```
 
-## Exploring the Data
+## Exploratory Analysis
+
+
+
+## Response of Interest: Price and Popularity
+
+## Choosing a Meaningful Measure of Popularity
+
+## Heterogeneity across Neighbourhoods/Boroughs
+
+## Spatial Correlation
+
+## Predictors of Interest
+
+## Possibly Unreliable Predictors
+
+## Modeling
+
+## Price and Popularity: Bivariate Mixed Effects Regression
+
+## Did We Miss Spatial Correlation Within Neighbourhoods?
 
 ## Text Analysis for Listing Names
-
-## Regression Model for Price and Popularity
 
 ## Further Work
