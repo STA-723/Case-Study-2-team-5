@@ -61,28 +61,44 @@ ggplot(ns_gt_1000) + geom_col(aes(neighbourhood, med_price)) +
     theme(axis.text.x = element_text(colour = "black", angle = 90, size = 7))
 ```
 
-# Locations Matter for Price
+# Is the raw count of reviews a good measure of popularity?? (Prob. not)
 
 ```{r}
-library(geoR)
-lm_data <- airbnb
-lm_data$price <- ifelse(lm_data$price==0, 5, lm_data$price)
-base_model <- lm(log(price) ~ minimum_nights + calculated_host_listings_count + 
-               room_type + neighbourhood_group + availability_365, data = lm_data)
-summary( stats::update(base_model, . ~ . + longitude + latitude) )
-anova( stats::update(base_model, . ~ . + longitude + latitude) )
-base_resids <- resid(base_model)
-
-#
-lm_data_m <- lm_data %>% filter(neighbourhood_group == "Manhattan")
-lm_data_b <- lm_data %>% filter(neighbourhood_group == "Brooklyn")
-r_m <- resid(lm(log(price) ~ minimum_nights + calculated_host_listings_count + room_type, data = lm_data_m))
-r_b <- resid(lm(log(price) ~ minimum_nights + calculated_host_listings_count + room_type, data = lm_data_b))
-v_m <- variog(data = r_m, coords = lm_data_m[,c("longitude", "latitude")])
-v_b <- variog(data = r_b, coords = lm_data_b[,c("longitude", "latitude")])
-par(mfrow = c(1,2)); plot(v_m); plot(v_b)
+airbnb %>% mutate(month = round(number_of_reviews / reviews_per_month)) %>% 
+  ggplot(.) + geom_point(aes(x = number_of_reviews, reviews_per_month, col = month)) +
+  scale_fill_distiller(direction = 1)
 ```
 
-  - Dirichlet allocation (topic modeling) for strings
+# Unreliability of Availability feature
+The feature `availability_365` is essentially "unreliable," in the sense that its large number of zero values should be understood as a "mixture" of truly zero counts and missing values. There seem to be a significiant difference, not only between the zero group and the non-zero value group, in their average number of `reviews_per_month`, but also in the distribution. Furthermore, conditioned on the listing's belonging to the non-zero group, the predictor actually seems to have a negative correlation with monthly review rate: More available listings are only so because they were less popular to begin with! This implies the variable has a different order structure than simple integers, and adjusting for this predictor may end up leading to unreliable/variable estimates.
+
+```{r}
+airbnb_mod <- airbnb %>% mutate(aspec = as.factor(availability_365 != 0))
+ggplot(airbnb_mod) + geom_histogram(aes(log(reviews_per_month), y = ..density.., 
+                                        group = aspec, fill = aspec))
+ggplot((airbnb %>% filter(availability_365 != 0)), aes(availability_365, log(reviews_per_month))) +
+  geom_point() + 
+  geom_smooth(method = "lm")
+```
+
+
+---------------
   
+# Felt the need to revise some of the above ...
+
+Important points.
+
+  * There is actually **negative** correlation structure in reviews per month in distance. This makes sense given as closer the listings get (some essentially share the same coordinates), one will be sapping away potential customers of the other. Yet price still has **positive** correlation structure in distance. This implies that pricing of each listing is relatively inelastic to its popularity levels. 
+  
+  * Another potential issue for a spatial model, like conditional autogressive models, is that not all neighbourhoods are included in this dataset. Thus, it is possible we get "islands." Furthermore, different decisions can be made on this neighborhood structure, as the geography of NYC involves multiple little straits connected through railways and bridges.
+  
+```{r}
+# devtools::install_github("mfherman/nycgeo")
+library(sf)
+library(nycgeo)
+nyc_coords <- st_multipoint(as.matrix(airbnb[,c("longitude", "latitude")]))
+nyc_coords_sf <- st_sfc(nyc_coords, crs = "+proj=longlat +datum=WGS84")
+ggplot() + geom_sf(data = nta_sf) + geom_sf(data = nyc_coords_sf, alpha = .5) + theme_bw() 
+```
+
   
