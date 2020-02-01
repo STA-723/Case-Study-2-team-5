@@ -10,18 +10,78 @@ library(dplyr)
 library(ggplot2)
 library(lubridate)
 # Dataset we are using (ref. to as airbnb)
-# airbnb <- read.csv("./AB_NYC_2019.csv") %>% 
-#     mutate(price = ifelse(price==0, 5, price),
-#            reviews_per_month = ifelse(is.na(reviews_per_month), 0, reviews_per_month),
-#            last_review = 2019 - year(ymd(last_review)),
-#            available_spec = (availability_365 != 0) ) %>%
-#     # available_spec does not actually mean "available," but rather two diff. groups
-#     # that have specified the variable or not
-#     # Whichever listings without any review will have NA values!
-#     filter(minimum_nights <= 365)
+airbnb <- read.csv("./AB_NYC_2019.csv") %>%
+    mutate(price = ifelse(price==0, 5, price),
+           reviews_per_month = ifelse(is.na(reviews_per_month), 0, reviews_per_month),
+           last_review = 2019 - year(ymd(last_review)),
+           available_spec = (availability_365 != 0) ) %>%
+    # available_spec does not actually mean "available," but rather two diff. groups
+    # that have specified the variable or not
+    # Whichever listings without any review will have NA values!
+    filter(minimum_nights <= 365)
 ```
 
 ## Exploratory Analysis
+
+### Question 1. Which are the most influential factors on the popularity/price of a listing? 
+
+```{r, cache=TRUE}
+library(xgboost)
+library(Matrix)
+
+# log transform price
+airbnb <- airbnb %>% mutate(log_price = log(price))
+
+# Drop useless columns
+drops <- c("id", "host_name", "host_id", "number_of_reviews", "name", "price", "longitude", "latitude")
+airbnb <- airbnb[ , !(names(airbnb) %in% drops)]
+
+matrix.airbnb <- sparse.model.matrix(log_price~., airbnb)
+# head(matrix.airbnb)
+fit.xgboost <- xgboost(data = matrix.airbnb, label = airbnb$log_price[!is.na(airbnb$last_review)], max_depth = 4, eta = 1, nthread = 2, nrounds = 10000, objective = "reg:squarederror", verbose = 0)
+
+importance <- xgb.importance(feature_names = colnames(matrix.airbnb), model = fit.xgboost)
+xgb.plot.importance(importance_matrix = importance, top_n = 10)
+```
+
+
+```{r, cache=TRUE}
+library(xgboost)
+library(Matrix)
+
+# Dataset we are using (ref. to as airbnb)
+airbnb <- read.csv("./AB_NYC_2019.csv") %>%
+    mutate(price = ifelse(price==0, 5, price),
+           reviews_per_month = ifelse(is.na(reviews_per_month), 0, reviews_per_month),
+           last_review = 2019 - year(ymd(last_review)),
+           available_spec = (availability_365 != 0) ) %>%
+    # available_spec does not actually mean "available," but rather two diff. groups
+    # that have specified the variable or not
+    # Whichever listings without any review will have NA values!
+    filter(minimum_nights <= 365)
+
+# log transform price
+airbnb <- airbnb %>% mutate(log_monthlyreview = log(reviews_per_month))
+
+# Drop useless columns
+drops <- c("id", "host_name", "host_id", "number_of_reviews", "name", "reviews_per_month", "longitude", "latitude")
+airbnb <- airbnb[ , !(names(airbnb) %in% drops)]
+
+matrix.airbnb <- sparse.model.matrix(log_monthlyreview~., airbnb)
+# head(matrix.airbnb)
+fit.xgboost <- xgboost(data = matrix.airbnb, label = airbnb$log_monthlyreview[!is.na(airbnb$last_review)], max_depth = 4, eta = 1, nthread = 2, nrounds = 10000, objective = "reg:squarederror", verbose = 0)
+
+importance <- xgb.importance(feature_names = colnames(matrix.airbnb), model = fit.xgboost)
+xgb.plot.importance(importance_matrix = importance, top_n = 10)
+```
+
+Based on XGBoost outputs, the most influential factors for price are room type, availability and location (Manhattan has the highest price). The most influential factors for popularity are last review date, availability and number of total listings of a host. 
+
+It is also noticed that price is quite influential for popularity and vice versa, this suggests that these two variables are affecting each other. We may consider modelling them together as bivariate responses. 
+
+### Question 2. Is there heterogeneity among boroughs and neighborhoods? And if there is, which neighborhood has the heaviest traffic or highest price? 
+
+Note: with chi-square test, the analysis can only be done on boroughs, rather than neighbourhoods.
 
 ```{r, include=FALSE}
 airbnb <- read.csv("./AB_NYC_2019.csv")
@@ -63,7 +123,7 @@ chisq.test(table_price_borough)
 library(ggmosaic)
 ggplot(data = airbnb) +
   geom_mosaic(aes(x = product(price_level, neighbourhood_group), fill=price_level), na.rm=TRUE) +
-  labs(x="Boroughs", title='Price Level') + ggtitle("Price Level by Boroughs") +
+  labs(x="Boroughs", y="Price Level") + ggtitle("Price Level by Boroughs") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
@@ -104,17 +164,43 @@ chisq.test(table_pop_borough)
 library(ggmosaic)
 ggplot(data = airbnb %>% filter(last_review!="")) +
   geom_mosaic(aes(x = product(popularity_level, neighbourhood_group), fill=popularity_level), na.rm=TRUE) +
-  labs(x="Boroughs", title='Popularity Level') + ggtitle("Popularity Level by Boroughs") +
+  labs(x="Boroughs", y="Popularity Level") + ggtitle("Popularity Level by Boroughs") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-According to the chi-square test, there is still heterogeity among boroughs regarding popularity of listings. However, as shown in the boxplot and mosaic plot, the difference is not as significant as price. Manhattan has the lowest popularity, in terms of monthly review rate.
+According to the chi-square test, there is still heterogeneity among boroughs regarding popularity of listings. However, as shown in the boxplot and mosaic plot, the difference is not as significant as price. Manhattan has the lowest popularity, in terms of monthly review rate.
 
 ```{r}
 table_pop_ngh <- table((airbnb%>% filter(last_review!=""))$popularity_level, (airbnb%>% filter(last_review!=""))$neighbourhood)
 # table_pop_ngh
 min(table_pop_ngh)
 chisq.test(table_pop_ngh)
+# many neighbourhoods have 0 or <5 listings, chi-squre test may not be accurate
+
+# ggmap?
+```
+
+### Question 3. Does the type of the listing (i.e., private room, entire home, etc.) vary across neighborhoods?
+
+```{r}
+# boroughs
+ggplot(data = airbnb) +
+  geom_mosaic(aes(x = product(room_type, neighbourhood_group), fill=room_type)) +
+  labs(x="Boroughs", y="Room Type") + ggtitle("Room Type by Boroughs") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+table_room_borough <- table(airbnb$room_type, airbnb$neighbourhood_group)
+table_room_borough
+chisq.test(table_room_borough)
+```
+
+As p-value is smaller than 0.05, we conclude that there is heterogeneity among boroughs regarding room types of the listings. Manhattan has more "Entire home/apt" than others.
+
+```{r}
+table_room_ngh <- table(airbnb$room_type, airbnb$neighbourhood)
+# table_room_ngh
+min(table_room_ngh)
+chisq.test(table_room_ngh)
 # many neighbourhoods have 0 or <5 listings, chi-squre test may not be accurate
 
 # ggmap?
