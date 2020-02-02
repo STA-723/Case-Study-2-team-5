@@ -404,14 +404,15 @@ summary {
 <pre><code>## Loading required package: Matrix</code></pre>
 <pre class="r"><code># 1. Price on monthly reviews
 mod1 &lt;- lmer(price ~ 1 + reviews_per_month + room_type + minimum_nights + 
-         last_review + calculated_host_listings_count + aspec + 
+         last_review + calculated_host_listings_count + aspec + availability_365 + 
          (1|neighbourhood_group/neighbourhood), data = data)
 # 2. Monthly reviews on price
 mod2 &lt;- lmer(reviews_per_month ~ 1 + price + room_type + minimum_nights + 
-         last_review + calculated_host_listings_count + aspec + 
-         (1|neighbourhood_group/neighbourhood), data = data)
-
-knitr::kable(summary(mod1)$coefficients, caption = &quot;Price: Coefficient estimates&quot;, digits = 2)</code></pre>
+         last_review + calculated_host_listings_count + aspec + availability_365 + 
+         (1|neighbourhood_group/neighbourhood), data = data)</code></pre>
+<pre><code>## Warning in checkConv(attr(opt, &quot;derivs&quot;), opt$par, ctrl = control$checkConv, :
+## Model failed to converge with max|grad| = 0.0181081 (tol = 0.002, component 1)</code></pre>
+<pre class="r"><code>knitr::kable(summary(mod1)$coefficients, caption = &quot;Price: Coefficient estimates&quot;, digits = 2)</code></pre>
 <table>
 <caption>Price: Coefficient estimates</caption>
 <thead>
@@ -426,50 +427,56 @@ knitr::kable(summary(mod1)$coefficients, caption = &quot;Price: Coefficient esti
 <tr class="odd">
 <td>(Intercept)</td>
 <td align="right">4.72</td>
-<td align="right">0.12</td>
-<td align="right">38.92</td>
+<td align="right">0.13</td>
+<td align="right">37.34</td>
 </tr>
 <tr class="even">
 <td>reviews_per_month</td>
 <td align="right">0.00</td>
 <td align="right">0.00</td>
-<td align="right">-1.49</td>
+<td align="right">-0.29</td>
 </tr>
 <tr class="odd">
 <td>room_typePrivate room</td>
-<td align="right">-0.71</td>
+<td align="right">-0.72</td>
 <td align="right">0.00</td>
-<td align="right">-149.60</td>
+<td align="right">-151.69</td>
 </tr>
 <tr class="even">
 <td>room_typeShared room</td>
-<td align="right">-1.11</td>
+<td align="right">-1.13</td>
 <td align="right">0.02</td>
-<td align="right">-70.34</td>
+<td align="right">-72.03</td>
 </tr>
 <tr class="odd">
 <td>minimum_nights</td>
 <td align="right">0.00</td>
 <td align="right">0.00</td>
-<td align="right">-19.53</td>
+<td align="right">-21.67</td>
 </tr>
 <tr class="even">
 <td>last_review</td>
 <td align="right">0.02</td>
 <td align="right">0.00</td>
-<td align="right">6.46</td>
+<td align="right">6.16</td>
 </tr>
 <tr class="odd">
 <td>calculated_host_listings_count</td>
 <td align="right">0.00</td>
 <td align="right">0.00</td>
-<td align="right">-0.32</td>
+<td align="right">-3.70</td>
 </tr>
 <tr class="even">
 <td>aspec</td>
-<td align="right">0.20</td>
+<td align="right">0.10</td>
 <td align="right">0.01</td>
-<td align="right">33.03</td>
+<td align="right">14.42</td>
+</tr>
+<tr class="odd">
+<td>availability_365</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">25.44</td>
 </tr>
 </tbody>
 </table>
@@ -490,7 +497,7 @@ knitr::kable(summary(mod1)$coefficients, caption = &quot;Price: Coefficient esti
 </tr>
 <tr class="even">
 <td align="left">neighbourhood_group</td>
-<td align="right">0.27</td>
+<td align="right">0.28</td>
 </tr>
 <tr class="odd">
 <td align="left">Residual</td>
@@ -512,51 +519,57 @@ knitr::kable(summary(mod1)$coefficients, caption = &quot;Price: Coefficient esti
 <tbody>
 <tr class="odd">
 <td>(Intercept)</td>
-<td align="right">-0.15</td>
-<td align="right">0.07</td>
-<td align="right">-2.01</td>
+<td align="right">-0.21</td>
+<td align="right">0.08</td>
+<td align="right">-2.68</td>
 </tr>
 <tr class="even">
 <td>price</td>
-<td align="right">-0.02</td>
+<td align="right">-0.01</td>
 <td align="right">0.01</td>
-<td align="right">-1.75</td>
+<td align="right">-0.59</td>
 </tr>
 <tr class="odd">
 <td>room_typePrivate room</td>
-<td align="right">0.00</td>
 <td align="right">0.01</td>
-<td align="right">-0.06</td>
+<td align="right">0.01</td>
+<td align="right">0.92</td>
 </tr>
 <tr class="even">
 <td>room_typeShared room</td>
-<td align="right">-0.04</td>
+<td align="right">-0.01</td>
 <td align="right">0.04</td>
-<td align="right">-0.99</td>
+<td align="right">-0.18</td>
 </tr>
 <tr class="odd">
 <td>minimum_nights</td>
 <td align="right">-0.01</td>
 <td align="right">0.00</td>
-<td align="right">-35.21</td>
+<td align="right">-34.14</td>
 </tr>
 <tr class="even">
 <td>last_review</td>
-<td align="right">-0.78</td>
+<td align="right">-0.77</td>
 <td align="right">0.01</td>
-<td align="right">-150.81</td>
+<td align="right">-150.36</td>
 </tr>
 <tr class="odd">
 <td>calculated_host_listings_count</td>
 <td align="right">0.00</td>
 <td align="right">0.00</td>
-<td align="right">-10.94</td>
+<td align="right">-9.60</td>
 </tr>
 <tr class="even">
 <td>aspec</td>
-<td align="right">0.60</td>
-<td align="right">0.01</td>
-<td align="right">44.83</td>
+<td align="right">0.67</td>
+<td align="right">0.02</td>
+<td align="right">42.94</td>
+</tr>
+<tr class="odd">
+<td>availability_365</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">-9.09</td>
 </tr>
 </tbody>
 </table>
@@ -577,7 +590,7 @@ knitr::kable(summary(mod1)$coefficients, caption = &quot;Price: Coefficient esti
 </tr>
 <tr class="even">
 <td align="left">neighbourhood_group</td>
-<td align="right">0.11</td>
+<td align="right">0.12</td>
 </tr>
 <tr class="odd">
 <td align="left">Residual</td>
@@ -621,7 +634,8 @@ Y_{1,i}\\ Y_{2,i} \end{array}\right) \stackrel{iid}{\sim} {\rm N}\left(
 \]</span> We have strong prior belief that <span class="math inline">\(\rho\in (-1,0)\)</span>; however, I haven’t found yet a good way to make the prior distribution on the covariance to reflect this.</p>
 <p>To facilitate model fitting procedure, I will again only let the intercepts vary between groups. Inclusion of more features will call for a Bayesian fitting with careful calibration of priors to induce shrinkage; otherwise, standard MLE will almost definitely fail to converge.</p>
 <pre class="r"><code>data_for_bv &lt;- data %&gt;% 
-  select(price, reviews_per_month, room_type, last_review, aspec, 
+  select(price, reviews_per_month, room_type, minimum_nights, last_review, 
+         calculated_host_listings_count, aspec, availability_365,
          neighbourhood, neighbourhood_group)
 
 # Hacky way to fit a multivariate response
@@ -631,7 +645,9 @@ data_for_bv_melt &lt;- data_for_bv %&gt;% select(price, reviews_per_month) %&gt;
   reshape2::melt(.)</code></pre>
 <pre><code>## No id variables; using all as measure variables</code></pre>
 <pre class="r"><code>data_for_bv &lt;- cbind.data.frame(data_for_bv_melt, data_for_bv[,-c(1,2)])
-mod3 &lt;- lmer(value ~ variable:(room_type + last_review + aspec)-1 + 
+mod3 &lt;- lmer(value ~ variable:(room_type + last_review + minimum_nights + 
+                                 availability_365 + calculated_host_listings_count + 
+                               aspec)-1 + 
                ((variable-1)|neighbourhood_group/neighbourhood),
              data = data_for_bv,
              control = lmerControl(optCtrl = list(ftol_abs = 1e-10)))</code></pre>
@@ -642,11 +658,11 @@ mod3 &lt;- lmer(value ~ variable:(room_type + last_review + aspec)-1 +
 </ul>
 <pre class="r"><code>VarCorr(mod3)</code></pre>
 <pre><code>##  Groups                            Name                      Std.Dev. Corr  
-##  neighbourhood:neighbourhood_group variableprice             0.16469        
-##                                    variablereviews_per_month 0.20380  -0.222
-##  neighbourhood_group               variableprice             0.26612        
-##                                    variablereviews_per_month 0.12923  -0.821
-##  Residual                                                    0.76979</code></pre>
+##  neighbourhood:neighbourhood_group variableprice             0.16838        
+##                                    variablereviews_per_month 0.19881  -0.214
+##  neighbourhood_group               variableprice             0.28190        
+##                                    variablereviews_per_month 0.11753  -0.777
+##  Residual                                                    0.75602</code></pre>
 </div>
 
 

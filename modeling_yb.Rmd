@@ -50,11 +50,11 @@ The estimates of our model show:
 library(lme4)
 # 1. Price on monthly reviews
 mod1 <- lmer(price ~ 1 + reviews_per_month + room_type + minimum_nights + 
-         last_review + calculated_host_listings_count + aspec + 
+         last_review + calculated_host_listings_count + aspec + availability_365 + 
          (1|neighbourhood_group/neighbourhood), data = data)
 # 2. Monthly reviews on price
 mod2 <- lmer(reviews_per_month ~ 1 + price + room_type + minimum_nights + 
-         last_review + calculated_host_listings_count + aspec + 
+         last_review + calculated_host_listings_count + aspec + availability_365 + 
          (1|neighbourhood_group/neighbourhood), data = data)
 
 knitr::kable(summary(mod1)$coefficients, caption = "Price: Coefficient estimates", digits = 2)
@@ -103,7 +103,8 @@ To facilitate model fitting procedure, I will again only let the intercepts vary
 
 ```{r bv_lmer, cache=T}
 data_for_bv <- data %>% 
-  select(price, reviews_per_month, room_type, last_review, aspec, 
+  select(price, reviews_per_month, room_type, minimum_nights, last_review, 
+         calculated_host_listings_count, aspec, availability_365,
          neighbourhood, neighbourhood_group)
 
 # Hacky way to fit a multivariate response
@@ -112,7 +113,9 @@ data_for_bv <- data %>%
 data_for_bv_melt <- data_for_bv %>% select(price, reviews_per_month) %>% 
   reshape2::melt(.)
 data_for_bv <- cbind.data.frame(data_for_bv_melt, data_for_bv[,-c(1,2)])
-mod3 <- lmer(value ~ variable:(room_type + last_review + aspec)-1 + 
+mod3 <- lmer(value ~ variable:(room_type + last_review + minimum_nights + 
+                                 availability_365 + calculated_host_listings_count + 
+                               aspec)-1 + 
                ((variable-1)|neighbourhood_group/neighbourhood),
              data = data_for_bv,
              control = lmerControl(optCtrl = list(ftol_abs = 1e-10)))
