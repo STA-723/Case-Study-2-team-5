@@ -121,32 +121,23 @@ mod3 <- lmer(value ~ variable:(room_type + last_review + minimum_nights +
              control = lmerControl(optCtrl = list(ftol_abs = 1e-10)))
 ```
 
-```{r, echo=F, include=F}
-# Not included for now
-# Not sure if I'll eventually fit Stan?
-# 
-# 
-# library(rstan)
-# stan(file = "bv_regression.stan",
-#      data = list(
-#        N = nrow(data), P = 11,
-#        x = model.matrix(price ~ room_type + minimum_nights + last_review +
-#                           calculated_host_listings_count + availability_365 +
-#                           neighbourhood_group,
-#                         data = data),
-#        y = as.matrix(data[,c("price", "reviews_per_month")])
-#      ),
-#     chains = 1 , iter = 10)
-
-```
-
 By jointly modeling `price` and `reviews_per_month`, we are interested in exploring the following:
 
   * Is the correlation between responses stronger than the correlation within neighbourhoods/boroughs?
   
   * Do the estimated effects for different factors substantially change relative to our previous model fits?
 
+No to the second question. Depends for the first question.
+
 ```{r}
-VarCorr(mod3)
+coefs_n <- coef(mod3)[[1]] # Neighbourhood fixed effects
+coefs_b <- coef(mod3)[[2]] # Borough fixed effects
+vs_n <- VarCorr(mod3)[[1]] # RE variance components
+vs_b <- VarCorr(mod3)[[2]]
+marginal_vs <- vs_n + vs_b + diag(rep(sigma(mod3)^2, 2))
+intercepts_b_price <- (coefs_b[,grepl("variableprice", colnames(coefs_b))])[,1]
+intercepts_n_price <- (coefs_n[,grepl("variableprice", colnames(coefs_n))])[,1]
+intercepts_b_rev <- (coefs_b[,grepl("variablereviews_per_month", colnames(coefs_b))])[,1]
+intercepts_n_rev <- (coefs_n[,grepl("variablereviews_per_month", colnames(coefs_n))])[,1]
 ```
 
