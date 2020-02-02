@@ -23,6 +23,35 @@ airbnb <- read.csv("./AB_NYC_2019.csv") %>%
 
 ## Exploratory Analysis
 
+### Heterogeneity among Boroughs
+```{r, include=FALSE, fig.width=5}
+airbnb_eda <- read.csv("./AB_NYC_2019.csv")
+# chi-square test
+airbnb_eda <- airbnb_eda %>% mutate(price_level = ifelse(price<=quantile(price, 0.25), "below Q1", ifelse(price<=quantile(price, 0.75), "between Q1 and Q3", "above Q3")))
+airbnb_eda$price_level <- factor(airbnb_eda$price_level, levels = c("below Q1", "between Q1 and Q3", "above Q3"))
+
+Price_Level_by_Boroughs <- table(airbnb_eda$price_level, airbnb_eda$neighbourhood_group)
+chisq.test(Price_Level_by_Boroughs)
+```
+
+```{r, echo=FALSE}
+library(knitr)
+library(kableExtra)
+kable(Price_Level_by_Boroughs) %>%
+    kable_styling(full_width=F)
+```
+
+* Pearson's Chi-squared test  
+X-squared = 6196.4, df = 8, p-value < 2.2e-16
+
+
+```{r, echo=FALSE, fig.width=5, fig.height=4}
+library(ggmosaic)
+ggplot(data = airbnb_eda) +
+  geom_mosaic(aes(x = product(price_level, neighbourhood_group), fill=price_level), na.rm=TRUE) +
+  labs(x="Boroughs", y="Price Level") + ggtitle("Price Level by Boroughs") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
 
 ## Response of Interest: Price and Popularity
