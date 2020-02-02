@@ -21,10 +21,25 @@ airbnb <- read.csv("./AB_NYC_2019.csv") %>%
     filter(minimum_nights <= 365)
 ```
 
-## Exploratory Analysis
+### Introduction
 
-### Heterogeneity among Boroughs
-```{r, include=FALSE, fig.width=5}
+* Data: Airbnb New York City open data collected from 2019, with 48,895 listings and 16 variables.  
+  
+* Goals:  
+  + Identify most influential factors for price/popularity  
+  + Examine heterogeneity across boroughs and neighbourhoods  
+  + Recommend best location and name for airbnb
+
+### Data Processing
+
+* Remove 14 observations with *minimum_nights* > 365
+* *Price*: the lowest non-zero value is 10, added 5 to 0's and take natural logarithm  
+* *Reviews per Month*: missing values are set to 0, since last review dates are missing and total number of reviews are 0 and take natural logarithm  
+* *Last Review*: group by years from 2019 (e.g. 2019 -> 0; 2018 -> 1, etc.)
+* *availability_365*: create a new variable *available_spec* to indicate whether the value is 0
+
+### EDA - Heterogeneity across Boroughs (Price)
+```{r, include=FALSE}
 airbnb_eda <- read.csv("./AB_NYC_2019.csv")
 # chi-square test
 airbnb_eda <- airbnb_eda %>% mutate(price_level = ifelse(price<=quantile(price, 0.25), "below Q1", ifelse(price<=quantile(price, 0.75), "between Q1 and Q3", "above Q3")))
@@ -34,25 +49,90 @@ Price_Level_by_Boroughs <- table(airbnb_eda$price_level, airbnb_eda$neighbourhoo
 chisq.test(Price_Level_by_Boroughs)
 ```
 
-```{r, echo=FALSE}
-library(knitr)
-library(kableExtra)
-kable(Price_Level_by_Boroughs) %>%
-    kable_styling(full_width=F)
+```{r message=FALSE, echo=FALSE}
+library(cowplot)
+p1 <- ggdraw() + draw_image("Boxplot_PriceBoroughs.png")
+p2 <- ggdraw() + draw_image("Mosaic_PriceLevelBoroughs.png")
+pp1<- plot_grid(p1, p2)
+ggdraw(pp1)
 ```
 
-* Pearson's Chi-squared test  
-X-squared = 6196.4, df = 8, p-value < 2.2e-16
+* Generate 3 price levels:  
+"below Q1", "between Q1 and Q3", "above Q3"  
+  
+* Pearson's Chi-squared test: p-value < 2.2e-16
 
+### EDA - Heterogeneity across Boroughs (Popularity)
+```{r, include=FALSE}
+airbnb_eda <- read.csv("./AB_NYC_2019.csv")
+# chi-square test
+airbnb_eda <- airbnb_eda %>% filter(last_review!="") %>% mutate(popularity_level = ifelse(reviews_per_month<=quantile(reviews_per_month, 0.25), "below Q1", ifelse(reviews_per_month<=quantile(reviews_per_month, 0.75), "between Q1 and Q3", "above Q3")))
+airbnb_eda$popularity_level <- factor(airbnb_eda$popularity_level, levels = c("below Q1", "between Q1 and Q3", "above Q3"))
 
-```{r, echo=FALSE, fig.width=5, fig.height=4}
-library(ggmosaic)
-ggplot(data = airbnb_eda) +
-  geom_mosaic(aes(x = product(price_level, neighbourhood_group), fill=price_level), na.rm=TRUE) +
-  labs(x="Boroughs", y="Price Level") + ggtitle("Price Level by Boroughs") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+Popularity_Level_by_Boroughs <- table(airbnb_eda$popularity_level, airbnb_eda$neighbourhood_group)
+chisq.test(Popularity_Level_by_Boroughs)
 ```
 
+```{r message=FALSE, echo=FALSE}
+p1 <- ggdraw() + draw_image("Boxplot_MonthlyReviewBoroughs.png")
+p2 <- ggdraw() + draw_image("Mosaic_PopularityLevelBoroughs.png")
+pp1<- plot_grid(p1, p2)
+ggdraw(pp1)
+```
+
+* Generate 3 popularity levels:  
+"below Q1", "between Q1 and Q3", "above Q3"  
+  
+* Pearson's Chi-squared test: p-value < 2.2e-16
+
+### EDA - Heterogeneity across Boroughs (Room Type)
+```{r, include=FALSE}
+airbnb_eda <- read.csv("./AB_NYC_2019.csv")
+# chi-square test
+RoomType_by_Boroughs <- table(airbnb_eda$room_type, airbnb_eda$neighbourhood_group)
+chisq.test(RoomType_by_Boroughs)
+```
+
+```{r message=FALSE, echo=FALSE, out.width = '70%',fig.align = "center"}
+p1 <- ggdraw() + draw_image("Mosaic_RoomTypeBoroughs.png")
+pp1<- plot_grid(p1)
+ggdraw(pp1)
+```
+
+* Pearson's Chi-squared test: p-value < 2.2e-16
+
+### EDA - XGBoost for Important Variables (Price)
+```{r message=FALSE, echo=FALSE, out.width = '75%',fig.align = "center"}
+p1 <- ggdraw() + draw_image("XGBoost_LogPrice.png")
+pp1<- plot_grid(p1)
+ggdraw(pp1)
+```
+
+* The most influential factors for price of airbnb include: room type (private room), availability, monthly reviews, boroughs (Manhattan), etc.
+
+### EDA - XGBoost for Important Variables (Popularity)
+```{r message=FALSE, echo=FALSE, out.width = '75%',fig.align = "center"}
+p1 <- ggdraw() + draw_image("XGBoost_LogMonthlyReview.png")
+pp1<- plot_grid(p1)
+ggdraw(pp1)
+```
+
+* The most influential factors for popularity of airbnb include: last review (in years from 2019), availability, minimum nights, price, etc.
+
+### EDA - Price and Popularity
+
+* From XGBoost outputs, price and popularity are closely related, both being an important variable of the other.  
+
+* The plot below shows a negative correlation between them:
+
+```{r message=FALSE, echo=FALSE, out.width = '75%',fig.align = "center"}
+p1 <- ggdraw() + draw_image("MonthlyReview_Price.png")
+pp1<- plot_grid(p1)
+ggdraw(pp1)
+```
+
+* We may consider model them as a bivariate reponse.
+  
 
 ## Response of Interest: Price and Popularity
 
