@@ -15,7 +15,7 @@ library(lubridate)
 options(mc.cores = parallel::detectCores())
 airbnb <- read.csv("./AB_NYC_2019.csv")
 airbnb[airbnb$price==0, "price"] <- 5 # All imputed by 10/2
-airbnb$minimum_nights <- ifelse(airbnb$minimum_nights > 365, 365, airbnb$minimum_nights)
+airbnb <- airbnb[airbnb$minimum_nights<=365,]
 
 data <- airbnb[airbnb$number_of_reviews != 0,] # Exclude zero reviews
 # Logarithmic scale (where rel. is actually linear)
@@ -23,7 +23,7 @@ data <- data %>%
     mutate(price = log(price), 
            reviews_per_month = log(reviews_per_month),
            last_review = 2019 - year(ymd(last_review)),
-           aspec = ifelse(availability_365==0, 0, 1))
+           aspec = as.factor(availability_365!=0))
 ```
 
 
