@@ -1,0 +1,30 @@
+---
+title: "Exploratory Analysis of Data for Airbnb Listings in NYC"
+author: "Youngsoo Baek, Irene Yi Ji, Phuc Nguyen"
+output: beamer_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+# Dataset we are using (ref. to as airbnb)
+airbnb <- read.csv("./AB_NYC_2019.csv") %>% 
+    mutate(price = ifelse(price==0, 5, price),
+           reviews_per_month = ifelse(is.na(reviews_per_month), 0, reviews_per_month),
+           last_review = 2019 - year(ymd(last_review)),
+           available_spec = (availability_365 != 0) ) %>%
+    # available_spec does not actually mean "available," but rather two diff. groups
+    # that have specified the variable or not
+    # Whichever listings without any review will have NA values!
+    filter(minimum_nights <= 365)
+```
+
+## Exploring the Data
+
+## Text Analysis for Listing Names
+
+## Regression Model for Price and Popularity
+
+## Further Work
