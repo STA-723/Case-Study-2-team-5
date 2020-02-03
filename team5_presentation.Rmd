@@ -53,7 +53,7 @@ include_graphics("figures/monthly_vs_raw.png")
 * __Monthly reviews__ adjusts for the history of a listing (albeit not perfectly)
 
 ### EDA - Price and Popularity
-* Price and popularity seem to be negatively correlated:
+* Price and popularity seem to be negatively correlated (with extreme values):
 ```{r message=FALSE, echo=FALSE, out.width = '70%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/MonthlyReview_Price.png")
 pp1<- plot_grid(p1)
@@ -76,9 +76,9 @@ ggdraw(pp1)
 
 ### Heterogeneity of Price / Popularity across Boroughs
 * Create new variables "Price Level" and "Popularity Level":  
-  + "Below Q1" for values < 25th Percentile
-  + "Between Q1 and Q3" for values from 25th to 75th Percentile  
-  + "Above Q3" for values > 75th Percentile  
+  + "Low" for values < 25th Percentile
+  + "Medium" for values between 25th and 75th Percentile  
+  + "High" for values > 75th Percentile  
   
 * Create contingency table and conduct Chi-squared Test for Homogeneity  
 
