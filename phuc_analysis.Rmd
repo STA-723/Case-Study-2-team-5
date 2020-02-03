@@ -26,7 +26,7 @@ availability_365? 0 availability but has review? max is only 365?
 minimum nights of 4 years? data error
 
 ```{r}
-airbnb <- read.csv("AB_NYC_2019.csv")
+  airbnb <- read.csv("AB_NYC_2019.csv")
 summary(airbnb)
 ```
 
@@ -35,6 +35,9 @@ summary(airbnb)
 # Add something to price $0 to take the log.
 max.minimum.nights <- 50
 cur.year <- 2020
+rpm.min <- airbnb %>% 
+  filter(reviews_per_month > 0 & !is.na(reviews_per_month)) %>% 
+  select(reviews_per_month) %>% min() / 2
 airbnb <- airbnb %>%
   replace_na(list(reviews_per_month = 0)) %>%
   mutate(last_review_year = cur.year - as.numeric(format(as.Date(last_review), "%Y"))) %>%
@@ -103,6 +106,11 @@ ggplot(airbnb, aes(x = neighbourhood_group, y = log(reviews_per_month))) + geom_
 Number of reviews and review per months are both not normal even after log transformation. Maybe need Poisson model?
 
 Seems like availability_365 is not correlated with either price or number of reviews. Maybe reviews_per_month has a quadratic relationship with this??
+
+```{r}
+airbnb %>%
+  ggplot(aes(x = as.factor(last_review_year), y = log(reviews_per_month + rpm.min))) + geom_boxplot()
+```
 
 ## Modeling
 
@@ -211,7 +219,6 @@ word_price <- word_merge %>%
 head(word_price, 10)
 ```
 
-
 ### tf-idf word model
 
 ```{r}
@@ -225,10 +232,318 @@ words_top3 <- words %>%
 
 Summarize average price and review per month
 
+## Questions
+
+-1. Preprocess: 
+- Remove foreign language names because I cannot interpret them.
+- Remove numbers
+- (Lemmatize? probably not cause they're all nouns and adjectives)
+- Remove words that don't make sense aka not in a dictionary suggested here: https://mirekdlugosz.com/blog/2016/how-to-use-r-to-recognize-if-given-string-is-a-word/
+
+```{r}
+library(qdapDictionaries)
+words <- airbnb %>%
+  mutate(name = gsub("[[:digit:]]+", "", name)) %>%  # remove numbers
+  #mutate(name = iconv(name, "latin1", "ASCII", sub="")) %>%  # remove non latin words
+  mutate(txt = as.character(name), doc = as.character(id)) %>%
+  select(doc, txt) %>%
+  tidytext::unnest_tokens(word, txt) %>%
+  anti_join(stop_words) %>%
+  ungroup() %>%
+  #filter(word %in% GradyAugmented) %>%
+  mutate(word = tolower(word))
+  
+words_tf <- words %>%
+  count(doc, word, sort = TRUE) %>%
+  bind_tf_idf(word, doc, n)  # calculate tf_idf using clean data
+```
+
+0. Take a look at words with low tf_idf. These are descriptive of the names but also appear in a lot of names.
+
+a. Top 20 most common words
+
+```{r}
+words_count <- words %>%
+  count(word)
+words_count %>%
+  arrange(desc(n)) %>%
+  head(30)
+```
+
+Word cloud of these word frequency
+
+```{r}
+library(wordcloud)
+library(RColorBrewer)
+set.seed(1234)
+png("figures/wordcloud_count.png", width=6, height=6, units='in', res = 400)
+wordcloud(words = words_count$word, freq = words_count$n, min.freq = 1,
+          max.words=150, random.order=FALSE, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+dev.off()
+```
+
+b. Top 20 least common words: 
+
+Before doing the preprocessing step, these are mostly foreign language, misspelling, numbers (maybe address of place, area, etc). After preprocessing, these seem to be words not related to rental. 
+
+```{r}
+words %>%
+  count(word) %>%
+  ungroup() %>%
+  top_n(-1)
+```
+
+Average tf_idf?
+
+```{r}
+words_tf %>%
+  group_by(word) %>%
+  summarise(avg_tf_idf = mean(tf_idf)) %>%
+  ungroup() %>%
+  arrange(desc(avg_tf_idf)) %>%
+  top_n(-30)
+words_tf %>%
+  group_by(word) %>%
+  summarise(avg_tf_idf = mean(tf_idf)) %>%
+  ungroup() %>%
+  arrange(desc(avg_tf_idf)) %>%
+  top_n(30)
+```
+
+Before preprocessing: Some issues with tf_idf: words with very high tf_idf are usually MISPELLED, names, numbers (address). These are not good words to recommend. The ones with low tf_idf are usually foreign words and some generic words like apartment, bedroom.
+
+After preprocessing: the words with high tf_idf are still strange words that probably only appear in one name.
+
+1. Price is higher in Manhattan than Brooklyn?
+
+```{r}
+airbnb %>%
+  ggplot(aes(x = neighbourhood_group)) + geom_bar()
+airbnb %>%
+  ggplot(aes(x = neighbourhood_group, y = log(price))) + geom_boxplot()
+airbnb %>%
+  ggplot(aes(x = neighbourhood_group, y = log(reviews_per_month))) + geom_boxplot()
+airbnb %>%
+  ggplot(aes(x = neighbourhood_group, y = log(reviews_per_month * price))) + geom_boxplot()
+```
+
+2. Let's use LDA. Topic models correlates with boroughs/locations? Maybe sort words per topics but only include words unique to that topic?
+
+```{r}
+words_mat <- words %>%
+  count(doc, word, sort = TRUE) %>%
+  cast_dtm(doc, word, n)
+
+k_topics <- 5
+names_lda <- LDA(words_mat, k = k_topics, control = list(seed = 123))
+
+topic_word <- tidy(names_lda, matrix = "beta")
+
+n_terms <- 10
+top_terms <- topic_word %>%
+  group_by(topic) %>%
+  top_n(n_terms, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+```
+
+a. Show this in a map? Make boxplots of price/popularity per topics?
+
+Seems like the topics aren't that great possibly because the names are so short.
+
+```{r}
+topic_doc <- tidy(names_lda, matrix = "gamma")
+topic_doc_wide <- topic_doc %>%
+  spread(key = topic, value = gamma)
+hist(topic_doc_wide$`1`)
+hist(topic_doc_wide$`2`)
+hist(topic_doc_wide$`3`)
+hist(topic_doc_wide$`4`)
+hist(topic_doc_wide$`5`)
+```
+
+Here's a map of log prices and reviews per month. 
+
+Note there are NAs in reviews per month meaning those places have no reviews. We impute with half of smallest value and take the log 
+```{r, fig.width="50%"}
+library(ggmap)
+ggmap::register_google(key = "AIzaSyDo_ZuYPMFxuHoqxy08dDIjy-DXpN90O98")
+
+p <- ggmap(get_googlemap(center = c(lon = -73.935242, lat =  40.730610),
+                    zoom = 11, scale = 2,
+                    maptype ='terrain',
+                    color = 'color'))
+p + geom_point(aes(x = longitude, y = latitude,  
+                   colour = log(price), alpha = 0.3), 
+               data = airbnb,
+               size = 0.5) +
+  scale_color_gradient(low="black", high="red") + 
+  theme(legend.position = "none")
+ggsave("figures/map_log_price.png")
+
+p + geom_point(aes(x = longitude, y = latitude,  
+                   colour = log(reviews_per_month + rpm.min), alpha = 0.3), 
+               data = airbnb,
+               size = 0.5) +
+  scale_color_gradient(low="black", high="red") + 
+  theme(legend.position = "none")
+ggsave("figures/map_log_rpm.png")
+
+p + geom_point(aes(x = longitude, y = latitude,  
+                   colour = log((reviews_per_month + rpm.min) * price), alpha = 0.3), 
+               data = airbnb,
+               size = 0.5) +
+  scale_color_gradient(low="black", high="red") + 
+  theme(legend.position = "none")
+ggsave("figures/map_log_income.png")
+```
+
+Let's color dots by topics:
+
+```{r}
+topic_doc <- tidy(names_lda, matrix = "gamma") %>%
+  group_by(document) %>%
+  mutate(top_topic = which(gamma == max(gamma))) %>%
+  ungroup() %>%
+  spread(key = topic, value = gamma) %>%
+  mutate(document = as.numeric(document)) %>%
+  inner_join(airbnb, by = c("document" = "id"))
+
+p + geom_point(aes(x = longitude, y = latitude,  
+                   colour = as.factor(top_topic), alpha = 0.3), 
+               data = topic_doc,
+               size = 0.5) + 
+  theme(legend.position = "none")
+#ggsave("figures/map_log_price.png")
+```
+
+Here's a good tutorial on how to improve this LDA: https://www.zillow.com/tech/topic-modeling/
+
+```{r}
+words_tfdoc <- words %>%
+  count(word) %>%
+  mutate(tf = n/nrow(airbnb)) %>%
+  arrange(desc(tf))
+words_tfdoc %>%
+  head(30) %>%
+  ggplot(aes(x = reorder(word, -tf), y = tf)) +
+  geom_col() + xlab("") +
+  theme(axis.text.x = element_text(angle=45))
+```
+
+```{r}
+# LDA
+# Removing some words that appear in all topics
+words_to_remove <- c(words_tfdoc %>% filter(tf >= 0.1) %>% select(word) %>% unlist(), "apt", "br", 
+                     "spacious", "manhattan", "brooklyn")
+words_lda <- words %>%
+  filter(!(word %in% words_to_remove))
+# Prep data into doc-term matrix
+words_mat <- words_lda %>%
+  count(doc, word, sort = TRUE) %>%
+  cast_dtm(doc, word, n)
+# Fit LDA
+k_topics <- 3
+names_lda <- LDA(words_mat, k = k_topics, control = list(seed = 123))
+# Get prob of term given topic
+topic_word <- tidy(names_lda, matrix = "beta")
+# Get top n terms to viz
+top_terms <- topic_word %>%
+  group_by(topic) %>%
+  top_n(50, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+# Word cloud for topic
+for (t in unique(top_terms$topic)) {
+  df <- top_terms %>% filter(topic == t)
+  wordcloud(words = df$term, freq = df$beta, min.freq = 0.0001,
+          max.words=100, random.order=FALSE, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+}
+
+top_terms %>%
+  group_by(topic) %>%
+  top_n(5, beta) %>%
+  ungroup() %>%
+  mutate(topic = factor(topic),
+         term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(term, beta, fill = topic)) +
+  geom_bar(alpha = 0.8, stat = "identity", show.legend = FALSE) +
+  scale_x_reordered() +
+  facet_wrap(~ topic, scales = "free", ncol = 3) +
+  coord_flip()
+```
+
+```{r, eval=FALSE}
+# Choosing number of topics
+k_list <- seq(2, 6)
+per_scores <- rep(NA, length(k_list))
+for (k in k_list) {
+  per_scores[k-1] <- perplexity(LDA(words_mat, k = k, control = list(seed = 123)))
+}
+plot(k_list, per_scores, type="l")
+```
+
+Perplexity score seems to show smaller number of topic is better. So there's probably only one topic here...
+
+```{r}
+wc_neighborhood_asso <- function(neigh_name, max.words=150){
+  manhattan <- words %>% filter(word == neigh_name)
+  manhattan_asso <- words %>% filter(doc %in% manhattan$doc & word != neigh_name)
+  manhattan <- manhattan %>% merge(manhattan_asso, by = "doc") %>%
+    count(word.y) %>%
+    arrange(desc(n))
+  wc_df <- manhattan %>% filter(!(word.y %in% words_to_remove))
+  wordcloud(words = wc_df$word.y, freq = wc_df$n, min.freq = 1,
+            max.words=max.words, random.order=FALSE, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+}
+wc_neighborhood_asso("manhattan")
+```
+
+```{r}
+wc_neighborhood_asso("brooklyn", max.words = 50)
+wc_neighborhood_asso("queens")
+```
 
 
 
 
+3. So the words describing the topics are also words that appear a lot in the names.
+
+4. Names are descriptive so 3. is expected. Found this cool quanteda package! to make network of text
+
+5. Use a regression tree, then I can interpret the cutoff by plotting words based on the values maybe?
+
+6. Use pretrained word embeddings and k-nearest-neighbors regression or random forest. Then maybe display a representative from each k-neighborhoods: names similar to "studio in manhattan" for example on average (with like say k=10 other most similar names) have X dollars in price, Y average reviews per month, or Z in average income per month.
+
+7. Anything interesting about foreign language posts or mispelling names?
+
+```{r}
+badnames <- airbnb %>%
+  mutate(name = sub("[[:punct:]]", "", name)) %>%
+  mutate(has_nonenglish = 1 * grepl("IS_NOT_ENGLISH", iconv(name, "latin1", "ASCII", sub="IS_NOT_ENGLISH"))) %>%  # remove non latin words
+  mutate(name_nospace = 1 * !grepl(" ", name))
+badnames %>% 
+       select(name, name_nospace) %>%
+       filter(name_nospace == 1)
+badnames %>% 
+       select(name, has_nonenglish) %>%
+        filter(has_nonenglish == 1)
+ggplot(badnames, aes(x = as.factor(has_nonenglish))) + geom_bar()
+ggplot(badnames, aes(x = as.factor(has_nonenglish), y = log(price))) + geom_boxplot()
+ggplot(badnames, aes(x = as.factor(has_nonenglish), y = log(reviews_per_month + rpm.min))) + geom_boxplot()
+ggplot(badnames, aes(x = as.factor(name_nospace))) + geom_bar()
+ggplot(badnames, aes(x = as.factor(name_nospace), y = log(price))) + geom_boxplot()
+ggplot(badnames, aes(x = as.factor(name_nospace), y = log(reviews_per_month + rpm.min))) + geom_boxplot()
+```
+
+```{r}
+summary(lm(log(price) ~ has_nonenglish + name_nospace + neighbourhood_group + 
+             room_type + minimum_nights + number_of_reviews + calculated_host_listings_count,
+           data = badnames))
+summary(lm(log(reviews_per_month + rpm.min) ~ has_nonenglish + name_nospace + neighbourhood_group + 
+             room_type + minimum_nights + price + calculated_host_listings_count,
+           data = badnames))
+```
 
 
 
