@@ -80,7 +80,7 @@ ggdraw(pp1)
 
 * Small p-value suggests heterogeneity across boroughs.
 
-### Price: XGBoost for Important Variables
+### XGBoost for Important Variables
 ```{r message=FALSE, echo=FALSE, out.width = '100%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/XGBoost_LogPrice.png")
 p2 <- ggdraw() + draw_image("figures/XGBoost_LogMonthlyReview.png")
@@ -88,9 +88,9 @@ pp1<- plot_grid(p1, p2)
 ggdraw(pp1)
 ```
 
-* The most influential factors for price of airbnb include: room type, availability, monthly reviews, boroughs, etc.
+* The most influential factors for price include: room type, availability, monthly reviews, boroughs, etc.
 
-* The most influential factors for popularity of airbnb include: last review, availability, minimum nights, price, etc.
+* The most influential factors for popularity include: last review, availability, minimum nights, price, etc.
 
 ### EDA - Price and Popularity
 
