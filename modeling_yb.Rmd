@@ -132,14 +132,45 @@ By jointly modeling `price` and `reviews_per_month`, we are interested in explor
 No to the second question. Depends for the first question.
 
 ```{r}
-coefs_n <- coef(mod3)[[1]] # Neighbourhood fixed effects
-coefs_b <- coef(mod3)[[2]] # Borough fixed effects
-vs_n <- VarCorr(mod3)[[1]] # RE variance components
-vs_b <- VarCorr(mod3)[[2]]
-marginal_vs <- vs_n + vs_b + diag(rep(sigma(mod3)^2, 2))
-intercepts_b_price <- (coefs_b[,grepl("variableprice", colnames(coefs_b))])[,1]
-intercepts_n_price <- (coefs_n[,grepl("variableprice", colnames(coefs_n))])[,1]
-intercepts_b_rev <- (coefs_b[,grepl("variablereviews_per_month", colnames(coefs_b))])[,1]
-intercepts_n_rev <- (coefs_n[,grepl("variablereviews_per_month", colnames(coefs_n))])[,1]
+# Code to produce coefficients plot
+
+fixed <- summary(mod3)$coefficients
+fixed_price <- fixed[grepl("price", row.names(fixed)),1:2]
+fixed_rev <- fixed[grepl("reviews_per_month", row.names(fixed)),1:2]
+fixed_price <- cbind.data.frame(
+    melt(fixed_price)[melt(fixed_price)$Var2 != "Std. Error", c("Var1", "value")], 
+    lower = fixed_price[,1] - 2 * fixed_price[,2],
+    upper = fixed_price[,1] + 2 * fixed_price[,2])
+fixed_rev <- cbind.data.frame(
+    melt(fixed_rev)[melt(fixed_rev)$Var2 != "Std. Error", c("Var1", "value")], 
+    lower = fixed_rev[,1] - 2 * fixed_rev[,2],
+    upper = fixed_rev[,1] + 2 * fixed_rev[,2])
+#
+fixed_price$Var1 <- unlist(
+    lapply(
+        strsplit(as.character(fixed_price$Var1), split = ":"), 
+        function(x) x[2]
+    )
+)
+#
+fixed_rev$Var1 <- unlist(
+    lapply(
+        strsplit(as.character(fixed_rev$Var1), split = ":"), 
+        function(x) x[2]
+    )
+)
+#
+g1 <- ggplot(fixed_price) + 
+    geom_point(aes(x = Var1, y = value)) + 
+    geom_errorbar(aes(x = Var1, ymin = lower, ymax = upper)) + 
+    labs(x= "Mean +/- 2 SE", y = NULL, title = "Price") + coord_flip()
+
+g2 <- ggplot(fixed_rev) + 
+    geom_point(aes(x = Var1, y = value)) + 
+    geom_errorbar(aes(x = Var1, ymin = lower, ymax = upper)) +
+    labs(x= "Mean +/- 2 SE", y = NULL, title = "Monthly Reviews") + coord_flip()
+
+ggsave(filename = "coef_price.png", plot = g1, device = "png", width = 7, height = 5, units = "in")
+ggsave(filename = "coef_review.png", plot = g2, device = "png", width = 7, height = 5, units = "in")
 ```
 
