@@ -25,6 +25,18 @@ airbnb <- read.csv("./AB_NYC_2019.csv") %>%
 
 ## Text Analysis for Listing Names
 
+```{r}
+words <- airbnb %>%
+  mutate(name = gsub("[[:digit:]]+", "", name)) %>%  # remove numbers
+  mutate(txt = as.character(name), doc = as.character(id)) %>%
+  select(doc, txt) %>%
+  tidytext::unnest_tokens(word, txt) %>%
+  anti_join(stop_words) %>%
+  ungroup() %>%
+  mutate(word = tolower(word))
+```
+
+
 ## Regression Model for Price and Popularity
 
 ## Further Work
