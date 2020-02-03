@@ -163,11 +163,13 @@ fixed_rev$Var1 <- unlist(
 g1 <- ggplot(fixed_price) + 
     geom_point(aes(x = Var1, y = value)) + 
     geom_errorbar(aes(x = Var1, ymin = lower, ymax = upper)) + 
+    geom_hline(yintercept = 0, col = "red", lwd = 1) +
     labs(x= "Mean +/- 2 SE", y = NULL, title = "Price") + coord_flip()
 
 g2 <- ggplot(fixed_rev) + 
     geom_point(aes(x = Var1, y = value)) + 
     geom_errorbar(aes(x = Var1, ymin = lower, ymax = upper)) +
+    geom_hline(yintercept = 0, col = "red", lwd = 1) +
     labs(x= "Mean +/- 2 SE", y = NULL, title = "Monthly Reviews") + coord_flip()
 
 ggsave(filename = "coef_price.png", plot = g1, device = "png", width = 7, height = 5, units = "in")
