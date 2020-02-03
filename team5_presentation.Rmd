@@ -137,7 +137,7 @@ $$
 
   * Observations with no reviews excluded (`r round(sum(airbnb$reviews_per_month == 0)/nrow(airbnb), 2)*100`\% of the data)
 
-### What Are the Important Predictors for Price/Popularity?
+### What Are the Important Predictors for Price?
 
 ```{r, include=F, cache=T}
 # Model code included just in case, for reproducibility
@@ -158,14 +158,19 @@ mod3 <- lmer(value ~ variable:(room_type +
              control = lmerControl(optCtrl = list(ftol_abs = 1e-10)))
 ```
 
-  * In terms of magnitude, not significance, __room type__ for price, and __last review__ for popularity
-  
-  * Apartments > Pvt room > Shared room for price, and more popular if the listing is young
-
-```{r, out.height = '2in', out.width='4in'}
+```{r}
 include_graphics("figures/coef_price.png")
+```
+
+  * Many predictors are significant, but __room type__ only seems to be associated to large enough increase in price
+  
+### What Are the Important Predictors for Popularity?
+
+```{r}
 include_graphics("figures/coef_review.png")
 ```
+
+  * The younger the listing is, the more it is popular on average (in spite of significance of the quadratic term)
 
 ### Estimates for Group Heterogeneities
 
