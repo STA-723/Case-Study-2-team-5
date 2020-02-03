@@ -6,6 +6,7 @@ output: beamer_presentation
 
 ```{r setup, include=FALSE}
 library(knitr)
+library(lme4)
 opts_chunk$set(echo = FALSE, 
                       message = FALSE, 
                       warning = FALSE,
@@ -28,7 +29,6 @@ airbnb <- read.csv("./AB_NYC_2019.csv") %>%
 ```
 
 ### Introduction
-
 * Data: Airbnb New York City open data collected from 2019, with 48,895 listings and 16 variables.  
   
 * Goals:  
@@ -37,7 +37,6 @@ airbnb <- read.csv("./AB_NYC_2019.csv") %>%
   + Recommend best location and name for airbnb
 
 ### Data Processing
-
 * Remove 14 observations with *minimum_nights* > 365
 * *Price*: the lowest non-zero value is 10, added 5 to 0's 
 * *Reviews per Month*: missing values are set to 0 (last review dates are missing and total number of reviews are 0)
@@ -52,64 +51,52 @@ include_graphics("figures/monthly_vs_raw.png")
 
 * __Monthly reviews__ adjusts for the history of a listing (albeit not perfectly)
 
-### Heterogeneity of Price across Boroughs
+### Heterogeneity of Price / Popularity across Boroughs
+* Create new variables "Price Level" and "Popularity Level":  
+  + "Below Q1" for values < 25th Percentile
+  + "Between Q1 and Q3" for values from 25th to 75th Percentile  
+  + "Above Q3" for values > 75th Percentile  
+  
+* Create contingency table and conduct Chi-squared Test for Homogeneity  
+
+### Heterogeneity of Price / Popularity across Boroughs
 ```{r message=FALSE, echo=FALSE, out.width = '90%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/Boxplot_PriceBoroughs.png")
 p2 <- ggdraw() + draw_image("figures/Mosaic_PriceLevelBoroughs.png")
-pp1<- plot_grid(p1, p2)
+p3 <- ggdraw() + draw_image("figures/Boxplot_MonthlyReviewBoroughs.png")
+p4 <- ggdraw() + draw_image("figures/Mosaic_PopularityLevelBoroughs.png")
+pp1<- plot_grid(p1, p2, p3, p4)
 ggdraw(pp1)
 ```
   
-* Generate 3 price levels:  
-"below Q1", "between Q1 and Q3", "above Q3"  
-  
-* Pearson's Chi-squared test: p-value < 2.2e-16
-
-### Heterogeneity of Popularity across Boroughs
-```{r message=FALSE, echo=FALSE, out.width = '90%',fig.align = "center"}
-p1 <- ggdraw() + draw_image("figures/Boxplot_MonthlyReviewBoroughs.png")
-p2 <- ggdraw() + draw_image("figures/Mosaic_PopularityLevelBoroughs.png")
-pp1<- plot_grid(p1, p2)
-ggdraw(pp1)
-```
-    
-* Generate 3 popularity levels:  
-"below Q1", "between Q1 and Q3", "above Q3"   
-  
-* Pearson's Chi-squared test: p-value < 2.2e-16
+* Small p-value suggests heterogeneity across boroughs.
 
 ### Heterogeneity of Room type across Boroughs
-```{r message=FALSE, echo=FALSE, out.width = '70%',fig.align = "center"}
+```{r message=FALSE, echo=FALSE, out.width = '60%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/Mosaic_RoomTypeBoroughs.png")
 pp1<- plot_grid(p1)
 ggdraw(pp1)
 ```
 
-* Pearson's Chi-squared test: p-value < 2.2e-16
+* Small p-value suggests heterogeneity across boroughs.
 
 ### Price: XGBoost for Important Variables
-```{r message=FALSE, echo=FALSE, out.width = '75%',fig.align = "center"}
+```{r message=FALSE, echo=FALSE, out.width = '100%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/XGBoost_LogPrice.png")
-pp1<- plot_grid(p1)
+p2 <- ggdraw() + draw_image("figures/XGBoost_LogMonthlyReview.png")
+pp1<- plot_grid(p1, p2)
 ggdraw(pp1)
 ```
 
-* The most influential factors for price of airbnb include: room type (private room), availability, monthly reviews, boroughs (Manhattan), etc.
+* The most influential factors for price of airbnb include: room type, availability, monthly reviews, boroughs, etc.
 
-### Popularity: XGBoost for Important Variables
-```{r message=FALSE, echo=FALSE, out.width = '75%',fig.align = "center"}
-p1 <- ggdraw() + draw_image("figures/XGBoost_LogMonthlyReview.png")
-pp1<- plot_grid(p1)
-ggdraw(pp1)
-```
-
-* The most influential factors for popularity of airbnb include: last review (in years from 2019), availability, minimum nights, price, etc.
+* The most influential factors for popularity of airbnb include: last review, availability, minimum nights, price, etc.
 
 ### EDA - Price and Popularity
 
 * From XGBoost outputs, price and popularity are closely related, both being an important variable of the other.  
 
-* The plot below shows a negative correlation between them on _log-scale_:
+* The plot below shows a negative correlation between them:
 
 ```{r message=FALSE, echo=FALSE, out.width = '70%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/MonthlyReview_Price.png")
