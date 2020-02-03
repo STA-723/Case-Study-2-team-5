@@ -130,23 +130,27 @@ ggdraw(p12)
 
 ### Modeling: Bivariate Mixed Effects Regression
 
-  * Mixed effect (to better understand heterogeneities) + Joint model for price and populairty (to better understand their negative correlation)
-  
-  * Group-varying intercept model
+  * Varying intercept model: Random effects for each neighbourhood, and each borough
+
 $$
 \begin{gathered}
-\left(\begin{array}{c}  \text{Log price} \\ \text{Log monthly review} \end{array}\right) \sim \\
-1 + \text{1|Borough:Neighborhood} + \text{1|Borough} + \\
-\text{Room type} + \text{Minimum nights} + \text{Last review} + \\
-\text{Host listings count} + \text{Non-zero avail.} + \text{Available days} +\\ 
+\text{For the }i-\text{th observation in neighbourhood }j\text{, in borough }k,\\
+\left(\begin{array}{c} \text{Price}_{k[j[i]]} \\ \text{Monthly review}_{k[j[i]]}\end{array}\right) =
+\left(\begin{array}{c} \boldsymbol{\beta}_1^T\mathbf{X}_i \\ \boldsymbol{\beta}_2^T\mathbf{X}_i\end{array}\right) +
+\boldsymbol{\eta}_{k[j]} + \boldsymbol{\theta}_{j} + \boldsymbol{\epsilon}_{k[j[i]]},\\
+\boldsymbol{\epsilon} \sim N(\mathbf{0}, \sigma^2I_2).
 \end{gathered}
 $$
 
-  * Observations with no reviews are excluded (`r round(sum(airbnb$reviews_per_month == 0)/nrow(airbnb), 2)*100`\% of the data)
+  * Quadratic term for how "old" a listing is included
 
-### Model Estimates
+  * Observations with no reviews excluded (`r round(sum(airbnb$reviews_per_month == 0)/nrow(airbnb), 2)*100`\% of the data)
+
+### What Are the Important Predictors for Price/Popularity?
 
 ```{r, include=F, cache=T}
+# Model code included just in case, for reproducibility
+# Can set eval=F if takes time
 library(lme4)
 library(reshape2)
 data_for_bv <- airbnb %>% select(-id, -name, -host_id, -host_name, -latitude, -longitude) %>% 
@@ -164,10 +168,28 @@ mod3 <- lmer(value ~ variable:(room_type +
              control = lmerControl(optCtrl = list(ftol_abs = 1e-10)))
 ```
 
+
 ```{r}
-knitr::kable(VarCorr(mod3))
+g1 <- ggdraw() + draw_image("figures/coef_price.png")
+g2 <- ggdraw() + draw_image("figures/coef_review.png")
+g12 <- plot_grid(g1, g2)
+ggdraw(g12)
 ```
 
+  * In terms of magnitude, not significance, __room type__ for price, and __last review__ for popularity
+  
+  * Apartments > Pvt room > Shared room for price, and more popular if the listing is young
+
+### Estimates for Group Heterogeneities
+
+```{r}
+kable(VarCorr(mod3)[[1]], format = "latex", align = "c")
+kable(VarCorr(mod3)[[2]], format = "latex", align = "c")
+```
+
+  * Many coefficients for significant predictors (adjusted for other variables) are swamped by the variability within/between different neighborhoods and boroughs
+  
+  * Negative correlation between coefficients for price and popularity
 
 ### Examining Spatial Correlation of the Residuals
 
@@ -183,19 +205,21 @@ include_graphics("figures/empirical_variograms.png")
   
   * As a result, closer things have more dissimilar popularity measures. As distance increases, however, the effect becomes less severe and association between a listing's features and sales becomes noticeable.
   
-  * However, price is relatively ``inelastic''; unless two listings are extremely close to each other, the hosts' pricing policy remains relatively indifferent to their neighbors, adjusted for other features of a listing.
+  * However, price is relatively "inelastic"; unless two listings are extremely close to each other, the hosts' pricing policy remains relatively indifferent to their neighbors, adjusted for other features of a listing.
   
   * Hence, we observe no evidence of spatial correlation, conditional on what neighborhood a listing belongs to, except in extreme proximity (high semivariogram for price).
 
 ### Text Analysis for Listing Names
 
+(...Phuc's analysis...)
+
 ### Limitations and Further Work
 
   * Including varying slopes calls for strong shrinkage
 
-  * Care is needed for spatial covariance models: ``soft'' adjacency matrix for neighborhoods/boroughs, negative autocorrelation, etc.
+  * Care is needed for spatial covariance models: "soft" adjacency matrix for neighborhoods/boroughs, negative autocorrelation, etc.
 
-  * Missing data/latent space model for {\tt availability_365} 
+  * Missing data/latent space model for `availability_365`
   
   * Nonparametric approach for bivariate model
   
