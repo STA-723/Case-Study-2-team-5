@@ -142,15 +142,40 @@ $$
 \end{gathered}
 $$
 
+  * Observations with no reviews are excluded (`r round(sum(airbnb$reviews_per_month == 0)/nrow(airbnb), 2)*100`\% of the data)
+
 ### Model Estimates
 
-(...Table of values...)
+```{r, include=F, cache=T}
+library(lme4)
+library(reshape2)
+data_for_bv <- airbnb %>% select(-id, -name, -host_id, -host_name, -latitude, -longitude) %>% 
+  filter(reviews_per_month!=0) %>% # For log-transform
+  mutate(price = log(price), reviews_per_month = log(reviews_per_month))
+data_for_bv_melt <- data_for_bv %>% select(price, reviews_per_month) %>% melt(.)
+data_for_bv <- cbind.data.frame(data_for_bv_melt, data_for_bv[,-c(4, 8)])
+mod3 <- lmer(value ~ variable:(room_type + 
+                                 last_review + I(last_review^2)+ 
+                                 minimum_nights + 
+                                 availability_365 + calculated_host_listings_count + 
+                                 available_spec)-1 + 
+               ((variable-1)|neighbourhood_group/neighbourhood),
+             data = data_for_bv,
+             control = lmerControl(optCtrl = list(ftol_abs = 1e-10)))
+```
 
-### Did We Miss Spatial Correlation Within Neighbourhoods?
+```{r}
+knitr::kable(VarCorr(mod3))
+```
+
+
+### Examining Spatial Correlation of the Residuals
 
 ```{r}
 include_graphics("figures/empirical_variograms.png")
 ```
+
+  * We observe large semivariogram for price when listings are extremely close, and __negative spatial correlation__ for monthly review rates
 
 ### Possible Insights
 
