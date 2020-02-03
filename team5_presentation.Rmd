@@ -5,7 +5,13 @@ output: beamer_presentation
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(knitr)
+opts_chunk$set(echo = FALSE, 
+                      message = FALSE, 
+                      warning = FALSE,
+                      fig.align = 'center',
+                      out.width = '90%')
+library(cowplot)
 library(dplyr)
 library(ggplot2)
 library(lubridate)
@@ -38,9 +44,16 @@ airbnb <- read.csv("./AB_NYC_2019.csv") %>%
 * *Last Review*: group by years from 2019 (e.g. 2019 -> 0; 2018 -> 1, etc.)
 * *availability_365*: create a new variable *available_spec* to indicate whether the value is 0
 
-### EDA - Heterogeneity across Boroughs (Price)
+### What is a Valid Metric for Popularity?
+
+```{r}
+include_graphics("figures/monthly_vs_raw.png")
+```
+
+* __Monthly reviews__ adjusts for the history of a listing (albeit not perfectly)
+
+### Heterogeneity of Price across Boroughs
 ```{r message=FALSE, echo=FALSE, out.width = '90%',fig.align = "center"}
-library(cowplot)
 p1 <- ggdraw() + draw_image("figures/Boxplot_PriceBoroughs.png")
 p2 <- ggdraw() + draw_image("figures/Mosaic_PriceLevelBoroughs.png")
 pp1<- plot_grid(p1, p2)
@@ -52,7 +65,7 @@ ggdraw(pp1)
   
 * Pearson's Chi-squared test: p-value < 2.2e-16
 
-### EDA - Heterogeneity across Boroughs (Popularity)
+### Heterogeneity of Popularity across Boroughs
 ```{r message=FALSE, echo=FALSE, out.width = '90%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/Boxplot_MonthlyReviewBoroughs.png")
 p2 <- ggdraw() + draw_image("figures/Mosaic_PopularityLevelBoroughs.png")
@@ -65,7 +78,7 @@ ggdraw(pp1)
   
 * Pearson's Chi-squared test: p-value < 2.2e-16
 
-### EDA - Heterogeneity across Boroughs (Room Type)
+### Heterogeneity of Room type across Boroughs
 ```{r message=FALSE, echo=FALSE, out.width = '70%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/Mosaic_RoomTypeBoroughs.png")
 pp1<- plot_grid(p1)
@@ -74,7 +87,7 @@ ggdraw(pp1)
 
 * Pearson's Chi-squared test: p-value < 2.2e-16
 
-### EDA - XGBoost for Important Variables (Price)
+### Price: XGBoost for Important Variables
 ```{r message=FALSE, echo=FALSE, out.width = '75%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/XGBoost_LogPrice.png")
 pp1<- plot_grid(p1)
@@ -83,7 +96,7 @@ ggdraw(pp1)
 
 * The most influential factors for price of airbnb include: room type (private room), availability, monthly reviews, boroughs (Manhattan), etc.
 
-### EDA - XGBoost for Important Variables (Popularity)
+### Popularity: XGBoost for Important Variables
 ```{r message=FALSE, echo=FALSE, out.width = '75%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/XGBoost_LogMonthlyReview.png")
 pp1<- plot_grid(p1)
@@ -96,7 +109,7 @@ ggdraw(pp1)
 
 * From XGBoost outputs, price and popularity are closely related, both being an important variable of the other.  
 
-* The plot below shows a negative correlation between them:
+* The plot below shows a negative correlation between them on _log-scale_:
 
 ```{r message=FALSE, echo=FALSE, out.width = '70%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/MonthlyReview_Price.png")
@@ -105,24 +118,60 @@ ggdraw(pp1)
 ```
 * We may consider model them as bivariate reponse.
 
-## Response of Interest: Price and Popularity
+### Possibly Unreliable Predictors
 
-## Choosing a Meaningful Measure of Popularity
+```{r}
+# Change figure sizes!
+p1 <- ggdraw() + draw_image("figures/available_zero_or_non.png")
+p2 <- ggdraw() + draw_image("figures/available_monthly_neg.png")
+p12 <- plot_grid(p1, p2)
+ggdraw(p12)
+```
 
-## Heterogeneity across Neighbourhoods/Boroughs
+### Modeling: Bivariate Mixed Effects Regression
 
-## Spatial Correlation
+  * Mixed effect (to better understand heterogeneities) + Joint model for price and populairty (to better understand their negative correlation)
+  
+  * Group-varying intercept model
+$$
+\begin{gathered}
+\left(\begin{array}{c}  \text{Log price} \\ \text{Log monthly review} \end{array}\right) \sim \\
+1 + \text{1|Borough:Neighborhood} + \text{1|Borough} + \\
+\text{Room type} + \text{Minimum nights} + \text{Last review} + \\
+\text{Host listings count} + \text{Non-zero avail.} + \text{Available days} +\\ 
+\end{gathered}
+$$
 
-## Predictors of Interest
+### Model Estimates
 
-## Possibly Unreliable Predictors
+(...Table of values...)
 
-## Modeling
+### Did We Miss Spatial Correlation Within Neighbourhoods?
 
-## Price and Popularity: Bivariate Mixed Effects Regression
+```{r}
+include_graphics("figures/empirical_variograms.png")
+```
 
-## Did We Miss Spatial Correlation Within Neighbourhoods?
+### Possible Insights
 
-## Text Analysis for Listing Names
+  * When two listings are very close (identical coordinates), the market effect takes sway over all others. One potential customer is being sapped away from one listing to another.
+  
+  * As a result, closer things have more dissimilar popularity measures. As distance increases, however, the effect becomes less severe and association between a listing's features and sales becomes noticeable.
+  
+  * However, price is relatively ``inelastic''; unless two listings are extremely close to each other, the hosts' pricing policy remains relatively indifferent to their neighbors, adjusted for other features of a listing.
+  
+  * Hence, we observe no evidence of spatial correlation, conditional on what neighborhood a listing belongs to, except in extreme proximity (high semivariogram for price).
 
-## Further Work
+### Text Analysis for Listing Names
+
+### Limitations and Further Work
+
+  * Including varying slopes calls for strong shrinkage
+
+  * Care is needed for spatial covariance models: ``soft'' adjacency matrix for neighborhoods/boroughs, negative autocorrelation, etc.
+
+  * Missing data/latent space model for {\tt availability_365} 
+  
+  * Nonparametric approach for bivariate model
+  
+  
