@@ -14,6 +14,7 @@ opts_chunk$set(echo = FALSE,
 library(cowplot)
 library(dplyr)
 library(ggplot2)
+library(lme4)
 library(lubridate)
 # Dataset we are using (ref. to as airbnb)
 airbnb <- read.csv("./AB_NYC_2019.csv") %>% 
@@ -118,31 +119,34 @@ ggdraw(pp1)
 ```
 * We may consider model them as bivariate reponse.
 
-### Possibly Unreliable Predictors
+### Unreliability of Availability Feature
 
 ```{r}
-# Change figure sizes!
-p1 <- ggdraw() + draw_image("figures/available_zero_or_non.png")
-p2 <- ggdraw() + draw_image("figures/available_monthly_neg.png")
-p12 <- plot_grid(p1, p2)
-ggdraw(p12)
+include_graphics("figures/available_zero_or_non.png")
 ```
+
+On average, it seems the listings that are "temporarily unavailable" (zero availability) have lower monthly review rate...
+
+### Unreliability of Availability Feature
+
+```{r}
+include_graphics("figures/available_monthly_neg.png")
+```
+
+...but _conditioned on_ non-zero availability, the association is less obvious (can be negative?).
 
 ### Modeling: Bivariate Mixed Effects Regression
 
-  * Varying intercept model: Random effects for each neighbourhood, and each borough
-
+  * Varying intercept model: For the $i$-th listing in neighborhood $j$, within borough $k$,
 $$
 \begin{gathered}
-\text{For the }i-\text{th observation in neighbourhood }j\text{, in borough }k,\\
 \left(\begin{array}{c} \text{Price}_{k[j[i]]} \\ \text{Monthly review}_{k[j[i]]}\end{array}\right) =
 \left(\begin{array}{c} \boldsymbol{\beta}_1^T\mathbf{X}_i \\ \boldsymbol{\beta}_2^T\mathbf{X}_i\end{array}\right) +
-\boldsymbol{\eta}_{k[j]} + \boldsymbol{\theta}_{j} + \boldsymbol{\epsilon}_{k[j[i]]},\\
-\boldsymbol{\epsilon} \sim N(\mathbf{0}, \sigma^2I_2).
+\boldsymbol{\eta}_{k[j]} + \boldsymbol{\theta}_{j} + \boldsymbol{\epsilon}_{k[j[i]]}.
 \end{gathered}
 $$
 
-  * Quadratic term for how "old" a listing is included
+  * Quadratic term of the listing's age is included
 
   * Observations with no reviews excluded (`r round(sum(airbnb$reviews_per_month == 0)/nrow(airbnb), 2)*100`\% of the data)
 
@@ -151,7 +155,6 @@ $$
 ```{r, include=F, cache=T}
 # Model code included just in case, for reproducibility
 # Can set eval=F if takes time
-library(lme4)
 library(reshape2)
 data_for_bv <- airbnb %>% select(-id, -name, -host_id, -host_name, -latitude, -longitude) %>% 
   filter(reviews_per_month!=0) %>% # For log-transform
@@ -168,32 +171,31 @@ mod3 <- lmer(value ~ variable:(room_type +
              control = lmerControl(optCtrl = list(ftol_abs = 1e-10)))
 ```
 
-
-```{r}
-g1 <- ggdraw() + draw_image("figures/coef_price.png")
-g2 <- ggdraw() + draw_image("figures/coef_review.png")
-g12 <- plot_grid(g1, g2)
-ggdraw(g12)
-```
-
   * In terms of magnitude, not significance, __room type__ for price, and __last review__ for popularity
   
   * Apartments > Pvt room > Shared room for price, and more popular if the listing is young
 
+```{r, out.height = '2in', out.width='4in'}
+include_graphics("figures/coef_price.png")
+include_graphics("figures/coef_review.png")
+```
+
 ### Estimates for Group Heterogeneities
 
 ```{r}
-kable(VarCorr(mod3)[[1]], format = "latex", align = "c")
-kable(VarCorr(mod3)[[2]], format = "latex", align = "c")
+kable(VarCorr(mod3)[[1]], format = "latex", row.names = F, align = "c", digits = 2)
+kable(VarCorr(mod3)[[2]], format = "latex", row.names = F, align = "c", digits = 2)
 ```
 
-  * Many coefficients for significant predictors (adjusted for other variables) are swamped by the variability within/between different neighborhoods and boroughs
+  * Many significant coefficients can be swamped by the variability within/between different neighborhoods and boroughs
   
-  * Negative correlation between coefficients for price and popularity
+  * Strong negative correlation between two random intercepts between boroughs (`r round(attr(lme4::VarCorr(mod3)[[2]], "correlation")[1,2], 2)`) 
 
 ### Examining Spatial Correlation of the Residuals
 
-```{r}
+  * Semivariograms: For location $\mathbf{s}_i$, estimate ${\rm Var}(Y(\mathbf{s}_i + d) - Y(\mathbf{s}_i))$ in increasing distance $d$.
+
+```{r, out.width='4in', out.height='2in'}
 include_graphics("figures/empirical_variograms.png")
 ```
 
@@ -205,9 +207,9 @@ include_graphics("figures/empirical_variograms.png")
   
   * As a result, closer things have more dissimilar popularity measures. As distance increases, however, the effect becomes less severe and association between a listing's features and sales becomes noticeable.
   
-  * However, price is relatively "inelastic"; unless two listings are extremely close to each other, the hosts' pricing policy remains relatively indifferent to their neighbors, adjusted for other features of a listing.
+   * However, price is relatively "inelastic"; unless two listings are extremely close to each other, the hosts' pricing policy remains relatively indifferent to their neighbors, adjusted for other features of a listing.
   
-  * Hence, we observe no evidence of spatial correlation, conditional on what neighborhood a listing belongs to, except in extreme proximity (high semivariogram for price).
+  * Hence, we observe no evidence of spatial correlation, conditional on what neighborhood a listing belongs to, except in extreme proximity (high semivariogram).
 
 ### Text Analysis for Listing Names
 
