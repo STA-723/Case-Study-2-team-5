@@ -52,6 +52,13 @@ include_graphics("figures/monthly_vs_raw.png")
 
 * __Monthly reviews__ adjusts for the history of a listing (albeit not perfectly)
 
+### Data Quality
+
+* NA's in monthly reviews: listings with no reviews
+* NA's in last review dates: listings with no reviews
+* Zero availablity but non-zero monthly reviews: temporary unavailability (shows plot)
+* Extreme minimum nights
+
 ### Heterogeneity of Price across Boroughs
 ```{r message=FALSE, echo=FALSE, out.width = '90%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/Boxplot_PriceBoroughs.png")
@@ -77,6 +84,10 @@ ggdraw(pp1)
 "below Q1", "between Q1 and Q3", "above Q3"   
   
 * Pearson's Chi-squared test: p-value < 2.2e-16
+
+### Heterogeneity of Popularity and Price across Boroughs
+
+![price](figures/map_log_price.png) ![rpm](figures/map_log_rpm.png)
 
 ### Heterogeneity of Room type across Boroughs
 ```{r message=FALSE, echo=FALSE, out.width = '70%',fig.align = "center"}
@@ -211,7 +222,37 @@ include_graphics("figures/empirical_variograms.png")
 
 ### Text Analysis for Listing Names
 
-(...Phuc's analysis...)
+![](figures/tf.png)
+
+![Manhattan](figures/wordcloud_manhattan.png) ![Brooklyn](figures/wordcloud_brooklyn.png) ![Queens](figures/wordcloud_queens.png)
+
+### Foreign language, Special Characters, and Misspelling
+
+> "WilliamsburgBrooklynPrivateBedroom"
+> "NiceRoomNiceNeighborhoodCloseMaimonidesHospital"
+
+```{r, cache=TRUE}
+badnames <- airbnb %>%
+  mutate(name = sub("[[:punct:]]", "", name)) %>%
+  mutate(has_nonenglish = 1 * grepl("IS_NOT_ENGLISH", iconv(name, "latin1", "ASCII", sub="IS_NOT_ENGLISH"))) %>%  # remove non latin words
+  mutate(name_nospace = 1 * (!grepl(" ", name) & has_nonenglish == 0))
+
+data_for_bv <- badnames %>% select(-id, -name, -host_id, -host_name, -latitude, -longitude) %>% 
+  filter(reviews_per_month!=0) %>% # For log-transform
+  mutate(price = log(price), reviews_per_month = log(reviews_per_month))
+data_for_bv_melt <- data_for_bv %>% select(price, reviews_per_month) %>% melt(.)
+data_for_bv <- cbind.data.frame(data_for_bv_melt, data_for_bv[,-c(4, 8)])
+mod_name <- lmer(value ~ variable:(room_type + 
+                                 last_review + I(last_review^2)+ 
+                                 minimum_nights + 
+                                 availability_365 + calculated_host_listings_count + 
+                                 available_spec)-1 + 
+               ((variable-1)|neighbourhood_group/neighbourhood) +
+                 has_nonenglish + name_nospace,
+             data = data_for_bv,
+             control = lmerControl(optCtrl = list(ftol_abs = 1e-10)))
+```
+
 
 ### Limitations and Further Work
 
