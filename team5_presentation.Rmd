@@ -133,6 +133,8 @@ $$
 \end{gathered}
 $$
 
+  * Both "availability specification" and raw availability count are included as predictors
+
   * Quadratic term of the listing's age is included
 
   * Observations with no reviews excluded (`r round(sum(airbnb$reviews_per_month == 0)/nrow(airbnb), 2)*100`\% of the data)
