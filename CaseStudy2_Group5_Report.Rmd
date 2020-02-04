@@ -1,0 +1,45 @@
+---
+title: "STA723 Case Study 2 - Group 5 Report"
+author: "Youngsoo Baek, Phuc Nguyen, Irene Ji"
+date: "2/5/2020"
+output:
+  pdf_document
+geometry: margin=1.1in 
+---
+\fontsize{10}{12}
+\selectfont
+
+## Abstract
+
+
+## 1. Introduction
+
+
+## 2. Materials $\&$ Methods
+
+
+## 3. Results
+
+
+### 3.1 Exploratary Data Analysis and Preprocessing
+
+
+### 3.2 Main Results
+
+
+### 3.3 Sensitivity Analysis
+
+
+## 4. Discussion
+
+\newpage
+
+## References
+
+\newpage
+
+## Appendix A. Figures and Tables for Main Report
+
+\newpage
+
+## Appendix B. Codes and Outputs
