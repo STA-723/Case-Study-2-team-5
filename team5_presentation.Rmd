@@ -180,17 +180,21 @@ include_graphics("figures/empirical_variograms.png")
 
 ### Text Analysis for Listing Names
 
-```{r, out.width="50%", fig.show = "hold", fig.align = "default"}
-include_graphics("figures/tf.png")
-include_graphics("figures/wordcloud_count.png")
+```{r message=FALSE, echo=FALSE, out.width = '100%',fig.align = "center"}
+p1 <- ggdraw() + draw_image("figures/tf.png")
+p2 <- ggdraw() + draw_image("figures/wordcloud_count.png")
+pp1<- plot_grid(p1, p2)
+ggdraw(pp1)
 ```
 
 ### Text Analysis for Listing Names
 
-```{r, fig.show = "hold",out.width="33%", fig.align = "default"}
-include_graphics("figures/wordcloud_manhattan.png")
-include_graphics("figures/wordcloud_brooklyn.png")
-include_graphics("figures/wordcloud_queens.png")
+```{r message=FALSE, echo=FALSE, out.width = '100%',fig.align = "center"}
+p1 <- ggdraw() + draw_image("figures/wordcloud_manhattan.png")
+p2 <- ggdraw() + draw_image("figures/wordcloud_brooklyn.png")
+p3 <- ggdraw() + draw_image("figures/wordcloud_queens.png")
+pp1<- plot_grid(p1, p2, p3)
+ggdraw(pp1)
 ```
 
 ### Foreign language, Special Characters, and Misspelling
