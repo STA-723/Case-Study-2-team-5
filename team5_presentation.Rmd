@@ -29,36 +29,18 @@ airbnb <- read.csv("./AB_NYC_2019.csv") %>%
     filter(minimum_nights <= 365)
 ```
 
-### Introduction
-* Data: Airbnb New York City open data collected from 2019, with 48,895 listings and 16 variables.  
-  
-* Goals:  
-  + Identify most influential factors for price/popularity  
-  + Examine heterogeneity across boroughs and neighbourhoods  
-  + Recommend best location and name for airbnb
-
 ### Data Processing
 * Remove 14 observations with *minimum_nights* > 365
-* *Price*: the lowest non-zero value is 10, added 5 to 0's 
-* *Reviews per Month*: missing values are set to 0 (last review dates are missing and total number of reviews are 0)
+* *Price*: the lowest non-zero value is 10, change 0 to 5 
+* *Reviews per Month*: missing values are set to 0 (there is no review for these listings)
 * *Last Review*: group by years from 2019 (e.g. 2019 -> 0; 2018 -> 1, etc.)
-* *availability_365*: create a new variable *available_spec* to indicate whether the value is 0
 
-### What is a Valid Metric for Popularity?
+### Response Variables - Price and Popularity
+* Metric for price: __price__  
 
-```{r}
-include_graphics("figures/monthly_vs_raw.png")
-```
+* Metric for popularity: __monthly reviews__ adjusts for the history of a listing (albeit not perfectly)
 
-* __Monthly reviews__ adjusts for the history of a listing (albeit not perfectly)
-
-### EDA - Price and Popularity
-* Price and popularity seem to be negatively correlated (with extreme values):
-```{r message=FALSE, echo=FALSE, out.width = '70%',fig.align = "center"}
-p1 <- ggdraw() + draw_image("figures/MonthlyReview_Price.png")
-pp1<- plot_grid(p1)
-ggdraw(pp1)
-```
+* Price and popularity seem to be negatively correlated (in log scale)
 
 ### XGBoost for Important Variables
 ```{r message=FALSE, echo=FALSE, out.width = '100%',fig.align = "center"}
@@ -68,9 +50,9 @@ pp1<- plot_grid(p1, p2)
 ggdraw(pp1)
 ```
 
-* The most influential factors for price include: room type, availability, monthly reviews, boroughs, etc.  
+* Most important variable for price: *Room Type*.
 
-* The most influential factors for popularity include: last review, availability, price, etc.  
+* Most important variable for popularity: *Last Review* (age of the listings).
 
 * Price and popularity are closely related, both being an important variable of the other. We may consider model them as bivariate reponse.  
 
@@ -94,13 +76,6 @@ ggdraw(pp1)
 ```
   
 * Small p-value suggests heterogeneity across boroughs.
-
-### Heterogeneity of Popularity and Price across Boroughs
-
-```{r, fig.show = "hold",out.width="50%", fig.align = "default"}
-include_graphics("figures/map_log_price.png")
-include_graphics("figures/map_log_rpm.png")
-```
 
 ### Heterogeneity of Room type across Boroughs
 ```{r message=FALSE, echo=FALSE, out.width = '60%',fig.align = "center"}
