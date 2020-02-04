@@ -52,35 +52,16 @@ include_graphics("figures/monthly_vs_raw.png")
 
 * __Monthly reviews__ adjusts for the history of a listing (albeit not perfectly)
 
-<<<<<<< HEAD
-### Data Quality
-
-* NA's in monthly reviews: listings with no reviews
-* NA's in last review dates: listings with no reviews
-* Zero availablity but non-zero monthly reviews: temporary unavailability (shows plot)
-* Extreme minimum nights
-
-### Heterogeneity of Price across Boroughs
-```{r message=FALSE, echo=FALSE, out.width = '90%',fig.align = "center"}
-p1 <- ggdraw() + draw_image("figures/Boxplot_PriceBoroughs.png")
-p2 <- ggdraw() + draw_image("figures/Mosaic_PriceLevelBoroughs.png")
-pp1<- plot_grid(p1, p2)
-ggdraw(pp1)
-```
-  
-* Generate 3 price levels:  
-"below Q1", "between Q1 and Q3", "above Q3"  
-=======
 ### Heterogeneity of Price / Popularity across Boroughs
 * Create new variables "Price Level" and "Popularity Level":  
   + "Below Q1" for values < 25th Percentile
   + "Between Q1 and Q3" for values from 25th to 75th Percentile  
   + "Above Q3" for values > 75th Percentile  
->>>>>>> ca85d3b67b1d18ac88da8a880ecbaa27954e004d
   
 * Create contingency table and conduct Chi-squared Test for Homogeneity  
 
 ### Heterogeneity of Price / Popularity across Boroughs
+
 ```{r message=FALSE, echo=FALSE, out.width = '90%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/Boxplot_PriceBoroughs.png")
 p2 <- ggdraw() + draw_image("figures/Mosaic_PriceLevelBoroughs.png")
@@ -94,7 +75,10 @@ ggdraw(pp1)
 
 ### Heterogeneity of Popularity and Price across Boroughs
 
-![price](figures/map_log_price.png) ![rpm](figures/map_log_rpm.png)
+```{r, fig.show = "hold",out.width="50%", fig.align = "default"}
+include_graphics("figures/map_log_price.png")
+include_graphics("figures/map_log_rpm.png")
+```
 
 ### Heterogeneity of Room type across Boroughs
 ```{r message=FALSE, echo=FALSE, out.width = '60%',fig.align = "center"}
@@ -229,16 +213,25 @@ include_graphics("figures/empirical_variograms.png")
 
 ### Text Analysis for Listing Names
 
-![](figures/tf.png)
+```{r, out.width="50%", fig.show = "hold", fig.align = "default"}
+include_graphics("figures/tf.png")
+include_graphics("figures/wordcloud_count.png")
+```
 
-![Manhattan](figures/wordcloud_manhattan.png) ![Brooklyn](figures/wordcloud_brooklyn.png) ![Queens](figures/wordcloud_queens.png)
+### Text Analysis for Listing Names
+
+```{r, fig.show = "hold",out.width="33%", fig.align = "default"}
+include_graphics("figures/wordcloud_manhattan.png")
+include_graphics("figures/wordcloud_brooklyn.png")
+include_graphics("figures/wordcloud_queens.png")
+```
 
 ### Foreign language, Special Characters, and Misspelling
 
 > "WilliamsburgBrooklynPrivateBedroom"
 > "NiceRoomNiceNeighborhoodCloseMaimonidesHospital"
 
-```{r, cache=TRUE}
+```{r, cache=TRUE, eval=FALSE}
 badnames <- airbnb %>%
   mutate(name = sub("[[:punct:]]", "", name)) %>%
   mutate(has_nonenglish = 1 * grepl("IS_NOT_ENGLISH", iconv(name, "latin1", "ASCII", sub="IS_NOT_ENGLISH"))) %>%  # remove non latin words
@@ -253,12 +246,16 @@ mod_name <- lmer(value ~ variable:(room_type +
                                  last_review + I(last_review^2)+ 
                                  minimum_nights + 
                                  availability_365 + calculated_host_listings_count + 
-                                 available_spec)-1 + 
-               ((variable-1)|neighbourhood_group/neighbourhood) +
-                 has_nonenglish + name_nospace,
+                                 available_spec +
+                                has_nonenglish + name_nospace)-1 + 
+               ((variable-1)|neighbourhood_group/neighbourhood),
              data = data_for_bv,
              control = lmerControl(optCtrl = list(ftol_abs = 1e-10)))
+summary(mod_name)
 ```
+
+### Conclusions
+
 
 
 ### Limitations and Further Work
