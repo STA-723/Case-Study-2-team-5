@@ -193,14 +193,16 @@ ggdraw(pp1)
 p1 <- ggdraw() + draw_image("figures/wordcloud_manhattan.png")
 p2 <- ggdraw() + draw_image("figures/wordcloud_brooklyn.png")
 p3 <- ggdraw() + draw_image("figures/wordcloud_queens.png")
-pp1<- plot_grid(p1, p2, p3)
+p4 <- ggdraw() + draw_image("figures/wordcloud_bronx.png")
+pp1<- plot_grid(p1, p2, p3, p4)
 ggdraw(pp1)
 ```
 
+"2 minutes to Midtown Manhattan", "Beautiful Brooklyn brownstone", "Cozy home in Astoria", "Home near Bronx Zoo".
+
 ### Foreign language, Special Characters, and Misspelling
 
-* "PrimChelsea1BR\~Sleeps4\~hugeOutdoor"  
-* "yahmanscrashpads"  
+Examples: "PrimChelsea1BR\~Sleeps4\~hugeOutdoor", "yahmanscrashpads"  
 
 ```{r message=FALSE, echo=FALSE, out.width = '90%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/coef_price_name.png")
@@ -208,6 +210,9 @@ p2 <- ggdraw() + draw_image("figures/coef_review_name.png")
 pp1<- plot_grid(p1, p2)
 ggdraw(pp1)
 ```
+
+* Listing names with no whitespace have lower monthly reviews
+* Listing in foreign languages have higher monthly reviews
 
 ### Conclusions
 
@@ -219,6 +224,8 @@ ggdraw(pp1)
   + Queens: most popular; Brooklyn: least popular  
   + Active and/or new listings  
   + Well-written names  
+  
+* Our listing: Entire home in Astoria, Queens
 
 ### Limitations and Further Work
 
