@@ -88,19 +88,11 @@ ggdraw(pp1)
 
 ### Unreliability of Availability Feature
 
+  * `availability_365`: Only important info. seems to come from whether it is zero or not
+
 ```{r}
 include_graphics("figures/available_zero_or_non.png")
 ```
-
-On average, it seems the listings that are "temporarily unavailable" (zero availability) have lower monthly review rate...
-
-### Unreliability of Availability Feature
-
-```{r}
-include_graphics("figures/available_monthly_neg.png")
-```
-
-...but _conditioned on_ non-zero availability, the association is less obvious (can be negative?).
 
 ### Modeling: Bivariate Mixed Effects Regression
 
@@ -113,7 +105,7 @@ $$
 \end{gathered}
 $$
 
-  * Both "availability specification" and raw availability count are included as predictors
+  * Availability is included both as an non-zero indicator and numeric variables 
 
   * Quadratic term of the listing's age is included
 
@@ -144,7 +136,7 @@ mod3 <- lmer(value ~ variable:(room_type +
 include_graphics("figures/coef_price.png")
 ```
 
-  * Many predictors are significant, but __room type__ only seems to be associated to large enough increase in price
+  * Apartment > Pvt room > Shared room in price
   
 ### What Are the Important Predictors for Popularity?
 
@@ -152,22 +144,23 @@ include_graphics("figures/coef_price.png")
 include_graphics("figures/coef_review.png")
 ```
 
-  * The younger the listing is, the more it is popular on average (in spite of significance of the quadratic term)
+  * To have reviews, a listing on average should be young and actually on business
 
-### Estimates for Group Heterogeneities
+### Random Intercepts for Groups
 
 ```{r}
-kable(VarCorr(mod3)[[1]], format = "latex", row.names = F, align = "c", digits = 2)
-kable(VarCorr(mod3)[[2]], format = "latex", row.names = F, align = "c", digits = 2)
+kable(coefficients(mod3)[[2]][,1:2], format = "latex", align = "c", digits = 2)
 ```
 
-  * Many significant coefficients can be swamped by the variability within/between different neighborhoods and boroughs
-  
+  * Manhattan most expensive, Queens most popular
+
   * Strong negative correlation between two random intercepts between boroughs (`r round(attr(lme4::VarCorr(mod3)[[2]], "correlation")[1,2], 2)`) 
+  
+  * Neighborhood-level variation is relatively minute
 
 ### Examining Spatial Correlation of the Residuals
 
-  * Semivariograms: For location $\mathbf{s}_i$, estimate ${\rm Var}(Y(\mathbf{s}_i + d) - Y(\mathbf{s}_i))$ in increasing distance $d$.
+  * Plotting semivariogram as evidence of within-neighborhood spatial structure
 
 ```{r, out.width='4in', out.height='2in'}
 include_graphics("figures/empirical_variograms.png")
