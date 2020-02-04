@@ -225,7 +225,7 @@ ggdraw(pp1)
   + Active and/or new listings  
   + Well-written names  
   
-* Our listing: Entire home in Astoria, Queens
+* Recommended listings: Entire home in Astoria, Queens; Luxury suit minutes from Midtown Manhattan.
 
 ### Limitations and Further Work
 
