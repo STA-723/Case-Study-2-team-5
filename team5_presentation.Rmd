@@ -181,7 +181,7 @@ include_graphics("figures/empirical_variograms.png")
 
 ### Text Analysis for Listing Names
 
-```{r message=FALSE, echo=FALSE, out.width = '100%',fig.align = "center"}
+```{r message=FALSE, echo=FALSE, out.width = '85%',fig.align = "center"}
 p2 <- ggdraw() + draw_image("figures/wordcloud_count.png")
 pp1<- plot_grid(p2)
 ggdraw(pp1)
@@ -198,36 +198,36 @@ ggdraw(pp1)
 ```
 
 ### Foreign language, Special Characters, and Misspelling
-> "PrimChelsea1BR\~Sleeps4\~hugeOutdoor"
-> "yahmanscrashpads"
 
+* "PrimChelsea1BR\~Sleeps4\~hugeOutdoor"  
+* "yahmanscrashpads"  
 
-```{r, fig.show = "hold", out.width="50%", fig.align = "default"}
-include_graphics("figures/coef_price_name.png")
-include_graphics("figures/coef_review_name.png")
+```{r message=FALSE, echo=FALSE, out.width = '90%',fig.align = "center"}
+p1 <- ggdraw() + draw_image("figures/coef_price_name.png")
+p2 <- ggdraw() + draw_image("figures/coef_review_name.png")
+pp1<- plot_grid(p1, p2)
+ggdraw(pp1)
 ```
 
 ### Conclusions
 
-  * Price: 
+* Price:   
+  + Manhattan: most expensive; Staten Island: least expensive  
+  + Entire home > Private room > Shared room  
   
-- Manhattan: most expensive; Staten Island: least expensive
-- Entire home > Private room > Shared room
-  
-  * Popularity:
-  
-- Queens: most popular; Brooklyn: least popular
-- Active and/or new listings
-- Well-written names
+* Popularity:  
+  + Queens: most popular; Brooklyn: least popular  
+  + Active and/or new listings  
+  + Well-written names  
 
 ### Limitations and Further Work
 
-  * Including varying slopes calls for strong shrinkage
+* Including varying slopes calls for strong shrinkage
 
-  * Care is needed for spatial covariance models: "soft" adjacency matrix for neighborhoods/boroughs, negative autocorrelation, etc.
+* Care is needed for spatial covariance models: "soft" adjacency matrix for neighborhoods/boroughs, negative autocorrelation, etc.
 
-  * Missing data, zero reviews
+* Missing data, zero reviews
   
-  * Nonparametric approach for bivariate model
+* Nonparametric approach for bivariate model
   
   
