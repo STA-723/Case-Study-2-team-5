@@ -1,6 +1,7 @@
 ---
 title: "Exploratory Analysis of Data for Airbnb Listings in NYC"
 author: "Youngsoo Baek, Irene Yi Ji, Phuc Nguyen"
+header-includes:
 output: beamer_presentation
 ---
 
@@ -212,7 +213,7 @@ include_graphics("figures/empirical_variograms.png")
 
 ### Text Analysis for Listing Names
 
-```{r, out.width="90%", fig.show = "hold", fig.align = "default"}
+```{r, out.width="80%", fig.show = "hold", fig.align = "default"}
 include_graphics("figures/wordcloud_count.png")
 ```
 
@@ -227,15 +228,21 @@ include_graphics("figures/wordcloud_bronx.png")
 
 ### Foreign language, Special Characters, and Misspelling
 
-> PrimChelsea1BR~Sleeps4~hugeOutdoor
-> yahmanscrashpads
-> 曼哈顿上西区林肯中心附近优质公寓短租
+> "PrimChelsea1BR\~Sleeps4\~hugeOutdoor"
+> "yahmanscrashpads"
+
+
+```{r, fig.show = "hold", out.width="50%", fig.align = "default"}
+include_graphics("figures/coef_price_name.png")
+include_graphics("figures/coef_review_name.png")
+```
+
 
 ```{r, cache=TRUE, eval=FALSE}
 badnames <- airbnb %>%
   mutate(name = sub("[[:punct:]]", "", name)) %>%
-  mutate(has_nonenglish = 1 * grepl("IS_NOT_ENGLISH", iconv(name, "latin1", "ASCII", sub="IS_NOT_ENGLISH"))) %>%  # remove non latin words
-  mutate(name_nospace = 1 * (!grepl(" ", name) & has_nonenglish == 0))
+  mutate(foreign = 1 * grepl("IS_NOT_ENGLISH", iconv(name, "latin1", "ASCII", sub="IS_NOT_ENGLISH"))) %>%  # remove non latin words
+  mutate(name_nospace = 1 * (!grepl(" ", name) & foreign == 0))
 
 data_for_bv <- badnames %>% select(-id, -name, -host_id, -host_name, -latitude, -longitude) %>% 
   filter(reviews_per_month!=0) %>% # For log-transform
@@ -247,18 +254,65 @@ mod_name <- lmer(value ~ variable:(room_type +
                                  minimum_nights + 
                                  availability_365 + calculated_host_listings_count + 
                                  available_spec +
-                                has_nonenglish + name_nospace)-1 + 
+                                foreign + name_nospace)-1 + 
                ((variable-1)|neighbourhood_group/neighbourhood),
              data = data_for_bv,
              control = lmerControl(optCtrl = list(ftol_abs = 1e-10)))
-summary(mod_name)
+```
+
+```{r, eval=FALSE}
+fixed <- summary(mod_name)$coefficients
+fixed_price <- fixed[grepl("price", row.names(fixed)),1:2]
+fixed_rev <- fixed[grepl("reviews_per_month", row.names(fixed)),1:2]
+fixed_price <- cbind.data.frame(
+    melt(fixed_price)[melt(fixed_price)$Var2 != "Std. Error", c("Var1", "value")], 
+    lower = fixed_price[,1] - 2 * fixed_price[,2],
+    upper = fixed_price[,1] + 2 * fixed_price[,2]) %>%
+    filter(grepl("room_type|foreign|name_nospace", Var1))
+fixed_rev <- cbind.data.frame(
+    melt(fixed_rev)[melt(fixed_rev)$Var2 != "Std. Error", c("Var1", "value")], 
+    lower = fixed_rev[,1] - 2 * fixed_rev[,2],
+    upper = fixed_rev[,1] + 2 * fixed_rev[,2]) %>%
+    filter(grepl("last_review|available_specTRUE|foreign|name_nospace", Var1))
+fixed_price$Var1 <- unlist(
+    lapply(
+        strsplit(as.character(fixed_price$Var1), split = ":"), 
+        function(x) x[2]
+    )
+)
+fixed_rev$Var1 <- unlist(
+    lapply(
+        strsplit(as.character(fixed_rev$Var1), split = ":"), 
+        function(x) x[2]
+    )
+)
+g1 <- ggplot(fixed_price) + 
+    geom_point(aes(x = Var1, y = value)) + 
+    geom_errorbar(aes(x = Var1, ymin = lower, ymax = upper)) + 
+    geom_hline(yintercept = 0, col = "red", lwd = 1) +
+    labs(x= "Mean +/- 2 SE", y = NULL, title = "Price") + coord_flip()
+g2 <- ggplot(fixed_rev) + 
+    geom_point(aes(x = Var1, y = value)) + 
+    geom_errorbar(aes(x = Var1, ymin = lower, ymax = upper)) +
+    geom_hline(yintercept = 0, col = "red", lwd = 1) +
+    labs(x= "Mean +/- 2 SE", y = NULL, title = "Monthly Reviews") + coord_flip()
+
+ggsave(filename = "figures/coef_price_name.png", plot = g1, device = "png", width = 7, height = 5, units = "in")
+ggsave(filename = "figures/coef_review_name.png", plot = g2, device = "png", width = 7, height = 5, units = "in")
 ```
 
 ### Conclusions
 
   * Price: 
   
+- Manhattan: most expensive; Staten Island: least expensive
+- Entire home > Private room > Shared room
+  
   * Popularity:
+  
+- Queens: most popular; Brooklyn: least popular
+- Active and/or new listings
+- Well-written names
 
 ### Limitations and Further Work
 
