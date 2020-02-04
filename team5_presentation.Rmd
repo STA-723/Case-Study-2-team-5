@@ -212,23 +212,24 @@ include_graphics("figures/empirical_variograms.png")
 
 ### Text Analysis for Listing Names
 
-```{r, out.width="50%", fig.show = "hold", fig.align = "default"}
-include_graphics("figures/tf.png")
+```{r, out.width="90%", fig.show = "hold", fig.align = "default"}
 include_graphics("figures/wordcloud_count.png")
 ```
 
 ### Text Analysis for Listing Names
 
-```{r, fig.show = "hold",out.width="33%", fig.align = "default"}
+```{r, fig.show = "hold", out.width="33%", fig.align = "default"}
 include_graphics("figures/wordcloud_manhattan.png")
 include_graphics("figures/wordcloud_brooklyn.png")
 include_graphics("figures/wordcloud_queens.png")
+include_graphics("figures/wordcloud_bronx.png")
 ```
 
 ### Foreign language, Special Characters, and Misspelling
 
-> "WilliamsburgBrooklynPrivateBedroom"
-> "NiceRoomNiceNeighborhoodCloseMaimonidesHospital"
+> PrimChelsea1BR~Sleeps4~hugeOutdoor
+> yahmanscrashpads
+> 曼哈顿上西区林肯中心附近优质公寓短租
 
 ```{r, cache=TRUE, eval=FALSE}
 badnames <- airbnb %>%
@@ -255,7 +256,9 @@ summary(mod_name)
 
 ### Conclusions
 
-
+  * Price: 
+  
+  * Popularity:
 
 ### Limitations and Further Work
 
@@ -263,7 +266,7 @@ summary(mod_name)
 
   * Care is needed for spatial covariance models: "soft" adjacency matrix for neighborhoods/boroughs, negative autocorrelation, etc.
 
-  * Missing data/latent space model for `availability_365`
+  * Missing data, zero reviews
   
   * Nonparametric approach for bivariate model
   
