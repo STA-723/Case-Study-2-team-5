@@ -38,8 +38,7 @@ geometry: margin=1.1in
 
 \newpage
 
-## Appendix A. Figures and Tables for Main Report
+## Appendix. Figures and Tables
 
 \newpage
 
-## Appendix B. Codes and Outputs
