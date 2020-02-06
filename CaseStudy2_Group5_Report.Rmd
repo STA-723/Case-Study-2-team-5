@@ -5,6 +5,7 @@ fontsize: "11pt"
 output: 
   pdf_document:
       latex_engine: xelatex
+abstract: "This is my abstract."
 ---
 
 ```{r setup, echo=FALSE}
@@ -16,14 +17,14 @@ opts_chunk$set(echo = FALSE,
                out.width = '90%')
 ```
 
-## Executive Summary
-
-
 ## 1. Introduction
-Airbnb New York City Open Data collected in 2019 contains information of 48,895 airbnb listings in New York. The dataset has 16 variables, including listing name, location, price, number of reviews, etc. The analysis focuses on identifying most influential factors for price and popularity, examining heterogeneity across boroughs and neighbourhoods, as well as recommending best location and name for airbnb.
+Airbnb New York City Open Data collected in 2019 contains information of 48,895 airbnb listings in New York. The dataset has 16 variables, including listing name, location, price, number of reviews, room type, etc. The analysis focuses on identifying most influential factors for price and popularity, examining heterogeneity across boroughs and neighbourhoods, as well as recommending best location and name for an Airbnb listing.
 
 ## 2. Materials and Methods
-Before fitting our main model (bivariate mixed effect regression), we applied XGBoost to explore the importance of each predictor and conducted Pearson's chi-squared test to examine the heterogeneity across boroughs. Price and monthly reviews were grouped into 3 levels (below Q1, between Q1 and Q3, above Q3) for chi-squared test.
+
+For data preprocessing, we removed 14 observations with `minimum_nights` greater than a year and imputed missing data by setting missing `price` to 5 and missing `reviews_per_month` to 0. We grouped `last_review` by year and used the difference between last review year and 2019 as our predictor. Since it is unclear what quantity `availability_365` variable is measuring, or how precise a measure it can serve as for whatever quantity inherent to a listing, we created an indicator variable `available_spec` (availability specification) to indicate whether the listing is available (1) or not (0). We took natural logarithm of price and monthly review and use them as metrics of price and popularity respectively. For our text analysis, we removed punctuations, numbers, and stop words and converted the listing names to lowercase. We then tokenized the names and calculated a frequency for each word over the whole corpus.
+
+Before fitting our main model (bivariate mixed effect regression), we applied XGBoost to explore the importance of each predictor and conducted Pearson's chi-squared test to examine the heterogeneity across boroughs. Price and monthly reviews were grouped into 3 levels (below Q1, between Q1 and Q3, above Q3) for chi-squared test. We also identify potentially influential characteristics and topics within the listing names using term-frequencies and Latent Dirichlet Allocation (LDA), and include them in our main model below. 
 
 To understand which factors influence the price and popularity of a listing, we fit a bivariate response linear regression that has varying intercept across different neighbourhoods and boroughs. For the $i$-th listing in neighbourhood $j$, within borough $k$, the model can be written as
 $$
@@ -35,24 +36,24 @@ $$
 $$
 where $\boldsymbol{\eta}_{k[j]}$ is the $2\times 1$ vector of neighborhood-level random effect, $\boldsymbol{\theta}_j$ is the borough-level random effect, and $\boldsymbol{\epsilon}$ is an observation error that has $N(0, \sigma^2\mathbf{I}_2)$ distribution. The random intercepts are assumed to have a bivariate normal distribution centered at zero, so we can estimate the between-response correlation between boroughs and between neighborhoods, within boroughs. The model is fit through a standard MLE procedure implemented in `lme4` package for `R`. The slopes remain fixed across different groups, and the predictors for the two responses remain identical for the two responses.
 
-## 3. Results
-
-### 3.1 Exploratary Data Analysis and Preprocessing
-For data preprocessing, we removed 14 observations with `minimum_nights` greater than a year and imputed missing data by setting missing `price` to 5 and missing `reviews_per_month` to 0. We grouped `last_review` by year and used the difference between last review year and 2019 as our predictor. Since it is unclear what quantity `availability_365` variable is measuring, or how precise a measure it can serve as for whatever quantity inherent to a listing, we created an indicator variable `available_spec` (availability specification) to indicate whether the listing is available (1) or not (0). We took natural logarithm of price and monthly review and use them as metrics of price and popularity respectively.
-
-As shown in Figures 1 and 2, variable importance plots of XGBoost suggest that room type, availability, monthly reviews and boroughs are the most influential factors for price of airbnb. Last review year, availability, minimum nights and price are most important for monthly reviews.
-
-Figures 3 to 5 present boxplots and mosaic plots for price, monthly review and room type across boroughs. As shown in the plots, price, popularity and room type differ across boroughs. For example, Manhanttan has the highest price and most listings there are entire homes or apartments. Queens, on the other hand, has the highest popularity and private rooms take up the most listings there. This agrees with the chi-squared test results, where the tests are all significant with p-values < 2e-16, suggesting there exists heterogeneity across boroughs.
-
-### 3.2 Main Results
-
-Our model does not explicitly account for possible spatial structure within neighborhoods. A useful quantity to model is the semivariogram $\gamma$ of the response $Y$, which is defined as
+Our model does not explicitly account for possible spatial structure within neighborhoods. A useful diagnostics for unexplained spatial correlation is the semivariogram $\gamma$ of the response $Y$, which is defined as
 $$\gamma(||\mathbf{h}||)\equiv \frac{1}{2}{\rm E}[Y(\mathbf{s+\mathbf{h}}) - Y(\mathbf{s})].$$
 Here, $\mathbf{s}$ indexes the listing's location, and $\mathbf{h}$ is the displacement vector. We assume that the variogram only depends on the distance, $d\equiv||\mathbf{h}||$, and not on the direction. In such setting, a customary, simple nonparametric estimator for semivariogram is (BCG, 2011)
 $$\hat{\gamma}(d) = \frac{1}{2|N(d)|}\sum_{(\mathbf{s}_i,\mathbf{s}_j)\in N(d)} [Y(\mathbf{s}_i)-Y(\mathbf{s}_j)]^2,$$
 where $N(d)$ consists of all pairs of locations that have a pairwise Euclidean distance $d$. The semivariogram estimators for each of the residuals are plotted on increasing pairwise distance.
 
-It is clear that for monthly review rates, we observe a negative spatial autocorrelation: closer things have more different response rather than similar. While seemingly counterintuitive, the negative autocorrelation can be explained by strong competition between listings when in close proximity. Within the same neighborhoods, a potential customer is always being sapped away from one listing to another, so the latter has at least one more review. Such effect will be strongly visible when listings are closer, but as distance increases, the dependence will become weak to none, and the variability of the difference between two monthly review rates will stabilize. That we do not see a similar negative autocorrelation in price is informative, as it suggests the hosts' pricing policy remains indifferent to their neighboring hosts, conditional on the neighborhood they belong to. The negative spatial correlation for monthly review rates raises cause for concern in applying standard spatial models like conditional autoregressive (CAR) models, which assumes positive autocorrelation.
+## 3. Results
+
+### 3.1 Exploratary Data Analysis
+
+As shown in Figures 1 and 2, variable importance plots of XGBoost suggest that room type, availability, monthly reviews and boroughs are the most influential factors for price of airbnb. Last review year, availability, minimum nights and price are most important for monthly reviews. Figures 3 to 5 present boxplots and mosaic plots for price, monthly review and room type across boroughs. As shown in the plots, price, popularity and room type differ across boroughs. For example, Manhanttan has the highest price and most listings there are entire homes or apartments. Queens, on the other hand, has the highest popularity and private rooms take up the most listings there. This agrees with the chi-squared test results, where the tests are all significant with p-values < 2e-16, suggesting there exists heterogeneity across boroughs.
+
+Figure \@ref(fig:tf-wordcloud) shows that the words "apartment", "bedroom", "private", "cozy", and "apt" appear most often in the corpus. Using the perplexity measure and predictive distributions of topics to diagnose LDA results, we conclude that there is only one meaningful topic in the listing names. As an alternative, we removed the top five most frequent words and plotted words sized by co-occurances with the boroughs' names in Figure \@ref(fig:tf-neighbor). The frequent usage of "min" or "minutes" suggests proximity is a common theme in listings related to Manhattan. Listing names in other boroughs are more often related to famous landmarks, such as brownstone in Brooklyn, the Astoria neighborhood in Queens, or the zoo in Bronx. Since we noticed substantial occurances of foreign characters, misspellings and lack of whitespaces in listing names, we created indicators for these characteristics. 
+
+### 3.2 Main Results
+
+Figure \@ref(fig:coef-ci) 
+From Figure \@ref(fig:semivariogramt), we observe a negative spatial autocorrelation for monthly review rates: closer things have more different response rather than similar. While seemingly counterintuitive, the negative autocorrelation can be explained by strong competition between listings when in close proximity. Within the same neighborhoods, a potential customer is always being sapped away from one listing to another, so the latter has at least one more review. Such effect will be strongly visible when listings are closer, but as distance increases, the dependence will become weak to none, and the variability of the difference between two monthly review rates will stabilize. That we do not see a similar negative autocorrelation in price is informative, as it suggests the hosts' pricing policy remains indifferent to their neighboring hosts, conditional on the neighborhood they belong to. The negative spatial correlation for monthly review rates raises cause for concern in applying standard spatial models like conditional autoregressive (CAR) models, which assumes positive autocorrelation.
 
 ## 4. Discussion
 
