@@ -46,15 +46,17 @@ Figures 3 to 5 present boxplots and mosaic plots for price, monthly review and r
 
 ### 3.2 Main Results
 
-Our model does not explicitly account for possible spatial structure within neighborhoods. A useful quantity to model is the semivariogram $\gamma$ of the response $Y$, which is defined as
-$$\gamma(||\mathbf{h}||)\equiv \frac{1}{2}{\rm E}[Y(\mathbf{s+\mathbf{h}}) - Y(\mathbf{s})].$$
-Here, $\mathbf{s}$ indexes the listing's location, and $\mathbf{h}$ is the displacement vector. We assume that the variogram only depends on the distance, $d\equiv||\mathbf{h}||$, and not on the direction. In such setting, a customary, simple nonparametric estimator for semivariogram is (BCG, 2011)
-$$\hat{\gamma}(d) = \frac{1}{2|N(d)|}\sum_{(\mathbf{s}_i,\mathbf{s}_j)\in N(d)} [Y(\mathbf{s}_i)-Y(\mathbf{s}_j)]^2,$$
-where $N(d)$ consists of all pairs of locations that have a pairwise Euclidean distance $d$. The semivariogram estimators for each of the residuals are plotted on increasing pairwise distance.
+Figures \ref{fig:fixed_price} and \ref{fig:fixed_rev} each plot the interval estimates for the predictor coefficients for price and monthly reviews. Exact estimates, standard errors, and $t$-test statistics are shown in Table 1. Together, these results show that notwithstanding the "significance" of many of the predictors based on naive $t$-tests, many of the coefficients have too small a magnitude to have a meaningful impact on price or popularity adjusted for others. This is especially apparent when we compare them to the estimated standard deviations and correlations for the random intercepts (Tables 2 and 3). The only factor that has greater influence on average on price than the heterogeneity across different neighborhood groups is a listing's room type, as apartments/entire rooms are the most expensive on average, followed by private and shared rooms. For monthly review rate, influential factors include a listing's age, and whether a listing is available at the moment data were collected (non-zero `availability_365` variable). The negative coefficient for `last_review` implies a listing must be younger on average to have more reviews per month. 
 
-It is clear that for monthly review rates, we observe a negative spatial autocorrelation: closer things have more different response rather than similar. While seemingly counterintuitive, the negative autocorrelation can be explained by strong competition between listings when in close proximity. Within the same neighborhoods, a potential customer is always being sapped away from one listing to another, so the latter has at least one more review. Such effect will be strongly visible when listings are closer, but as distance increases, the dependence will become weak to none, and the variability of the difference between two monthly review rates will stabilize. That we do not see a similar negative autocorrelation in price is informative, as it suggests the hosts' pricing policy remains indifferent to their neighboring hosts, conditional on the neighborhood they belong to. The negative spatial correlation for monthly review rates raises cause for concern in applying standard spatial models like conditional autoregressive (CAR) models, which assumes positive autocorrelation.
+### 3.3 Model Diagnostics
+Our model does not explicitly account for possible spatial structure within neighborhoods. Assuming there exists such an autocorrelation structure, the semivariogram $\gamma$ of the response $Y$, which is defined as
+$$\gamma(||\mathbf{h}||)\equiv \frac{1}{2}{\rm E}[Y(\mathbf{s+\mathbf{h}}) - Y(\mathbf{s})],$$
+will exhibit a clear pattern in increasing pairwise distance $d\equiv||\mathbf{h}||$. Here, $\mathbf{s}$ indexes the listing's location, and $\mathbf{h}$ is the displacement vector. A customary, simple nonparametric estimator for semivariogram is (BCG, 2011)
+$$\hat{\gamma}(d) = \frac{1}{2|N(d)|}\sum_{(\mathbf{s}_i,\mathbf{s}_j)\in N(d)} [Y(\mathbf{s}_i)-Y(\mathbf{s}_j)]^2,$$
+where $N(d)$ consists of all pairs of locations that have a pairwise, geodesic distance $d$. The semivariogram estimators for each of the residuals are plotted on increasing pairwise distance in Figure \ref{fig:variogram}. It is clear based on the plots that while for price, no evidence of significant spatial structure is seen conditional on the negiborhood effects, a negative spatial autocorrelation exists for monthly review rates: closer things have more different responses, rather than similar. While seemingly counterintuitive, the negative autocorrelation can be explained by strong competition between listings when in close proximity. Within the same neighborhoods, a potential customer is always being sapped away from one listing to another, so the latter has at least one more review. Such effect will be strongly visible when listings are closer, but as distance increases, the dependence will become weak to none, and the variability of the difference between two monthly review rates will stabilize. That we do not see a similar negative autocorrelation in price is informative, as it suggests the hosts' pricing policy remains indifferent to their neighboring hosts, conditional on the neighborhood they belong to. 
 
 ## 4. Discussion
+Our analysis was mainly intended to be exploratory, and the regression model fit in this report have many limitations. What we have discovered through EDA and model diagnostics, however, have important implications for application of more complex joint models. Most importantly, negative spatial autocorrelation for within-neighborhood monthly review rates raises concern for common spatial models including conditional autoregressive (CAR) models, which can only model positive autocorrelation. Models for repulsive point processes also exist in the literature, but our diagnostics show careis needed in jointly modeling the two responses when taking into account possible spatial structures. 
 
 \clearpage
 
@@ -102,19 +104,19 @@ ggdraw(add_sub(pp1, "Figure 5. Mosaic Plot for Room Type across Boroughs", vpadd
 ```
 
 
-```{r, fig.cap="Distribution of log monthly review rates for listings with zero/non-zero availability feature."}
+```{r, fig.cap="\\label{fig:zero_vs_non} Distribution of log monthly review rates for listings with zero/non-zero availability feature."}
 include_graphics("figures/available_zero_or_non.png")
 ```
 
-```{r, fig.cap="Fixed effect estimates for log price."}
+```{r, fig.cap="\\label{fig:fixed_price} Fixed effect estimates for log price."}
 include_graphics("figures/coef_price.png")
 ```
 
-```{r, fig.cap="Fixed effect estimates for log monthly review rates."}
+```{r, fig.cap="\\label{fig:fixed_rev} Fixed effect estimates for log monthly review rates."}
 include_graphics("figures/coef_review.png")
 ```
 
-```{r, fig.cap="Semivariogram estimators calculated from model residuals for price and monthly review rates."}
+```{r, fig.cap="\\label{fig:variogram} Semivariogram estimators calculated from model residuals for price and monthly review rates."}
 include_graphics("figures/empirical_variograms.png")
 ```
 
