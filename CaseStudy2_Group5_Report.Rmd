@@ -6,6 +6,16 @@ output:
   pdf_document:
       latex_engine: xelatex
 ---
+
+```{r setup, echo=FALSE}
+library(knitr)
+opts_chunk$set(echo = FALSE, 
+               message = FALSE, 
+               warning = FALSE,
+               fig.align = 'center',
+               out.width = '90%')
+```
+
 ## Executive Summary
 
 
@@ -14,6 +24,15 @@ output:
 
 ## 2. Materials and Methods
 
+To understand which factors influence the price and popularity of a listing, we fit a bivariate response linear regression that has varying intercept across different neighbourhoods and boroughs. For the $i$-th listing in neighbourhood $j$, within borough $k$, the model can be written as
+$$
+\begin{gathered}
+\left(\begin{array}{c} \text{Log Price}_{k[j[i]]} \\ \text{Log Monthly reviews}_{k[j[i]]}\end{array}\right) =
+\left(\begin{array}{c} \boldsymbol{\beta}_1^T\mathbf{X}_i \\ \boldsymbol{\beta}_2^T\mathbf{X}_i\end{array}\right) +
+\boldsymbol{\eta}_{k[j]} + \boldsymbol{\theta}_{j} + \boldsymbol{\epsilon}_{k[j[i]]},
+\end{gathered}
+$$
+where $\boldsymbol{\eta}_{k[j]}$ is the $2\times 1$ vector of neighborhood-level random effect, $\boldsymbol{\theta}_j$ is the borough-level random effect, and $\boldsymbol{\epsilon}$ is an observation error that has $N(0, \sigma^2\mathbf{I}_2)$ distribution. The random intercepts are assumed to have a bivariate normal distribution centered at zero, so we can estimate the between-response correlation between boroughs and between neighborhoods, within boroughs. The model is fit through a standard MLE procedure implemented in `lme4` package for `R`. The slopes remain fixed across different groups, and the predictors for the two responses remain identical for the two responses.
 
 ## 3. Results
 
@@ -23,14 +42,13 @@ output:
 
 ### 3.2 Main Results
 
-...Assuming log price and log number of monthly reviews are both isotropic and intrinsically stationary processes, we can define its semivariogram as
+Our model does not explicitly account for possible spatial structure within neighborhoods. A useful quantity to model is the semivariogram $\gamma$ of the response $Y$, which is defined as
 $$\gamma(||\mathbf{h}||)\equiv \frac{1}{2}{\rm E}[Y(\mathbf{s+\mathbf{h}}) - Y(\mathbf{s})].$$
-
-The customary, simple nonparametric estimator for semivariogram is (BCG, 2011)
+Here, $\mathbf{s}$ indexes the listing's location, and $\mathbf{h}$ is the displacement vector. We assume that the variogram only depends on the distance, $d\equiv||\mathbf{h}||$, and not on the direction. In such setting, a customary, simple nonparametric estimator for semivariogram is (BCG, 2011)
 $$\hat{\gamma}(d) = \frac{1}{2|N(d)|}\sum_{(\mathbf{s}_i,\mathbf{s}_j)\in N(d)} [Y(\mathbf{s}_i)-Y(\mathbf{s}_j)]^2,$$
-where $N(d)$ consists of all pairs of locations that have a pairwise Euclidean distance $d$. 
+where $N(d)$ consists of all pairs of locations that have a pairwise Euclidean distance $d$. The semivariogram estimators for each of the residuals are plotted on increasing pairwise distance.
 
-...It is clear that for monthly review rates, we observe a negative spatial autocorrelation: closer things have more different response rather than similar. This must raise alarming sign to possible efforts to apply traditional spatial models for this response, as naive conditional autogressive models assumes positive spatial autocorrelation.
+It is clear that for monthly review rates, we observe a negative spatial autocorrelation: closer things have more different response rather than similar. While seemingly counterintuitive, the negative autocorrelation can be explained by strong competition between listings when in close proximity. Within the same neighborhoods, a potential customer is always being sapped away from one listing to another, so the latter has at least one more review. Such effect will be strongly visible when listings are closer, but as distance increases, the dependence will become weak to none, and the variability of the difference between two monthly review rates will stabilize. That we do not see a similar negative autocorrelation in price is informative, as it suggests the hosts' pricing policy remains indifferent to their neighboring hosts, conditional on the neighborhood they belong to. The negative spatial correlation for monthly review rates raises cause for concern in applying standard spatial models like conditional autoregressive (CAR) models, which assumes positive autocorrelation.
 
 ## 4. Discussion
 
@@ -44,4 +62,21 @@ Banrjee, S., Carlin, B. P., and Gelfand, A. E. (2011). _Hierarchical Modeling an
 \clearpage
 
 ## Appendix: Figures and Tables
+
+```{r, fig.cap="Distribution of log monthly review rates for listings with zero/non-zero availability feature."}
+include_graphics("figures/available_zero_or_non.png")
+```
+
+```{r, fig.cap="Fixed effect estimates for log price."}
+include_graphics("figures/coef_price.png")
+```
+
+```{r, fig.cap="Fixed effect estimates for log monthly review rates."}
+include_graphics("figures/coef_review.png")
+```
+
+```{r, fig.cap="Semivariogram estimators calculated from model residuals for price and monthly review rates."}
+include_graphics("figures/empirical_variograms.png")
+```
+
 
