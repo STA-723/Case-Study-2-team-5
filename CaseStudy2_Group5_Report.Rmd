@@ -18,7 +18,7 @@ opts_chunk$set(echo = FALSE,
 ```
 
 ## 1. Introduction
-Airbnb New York City Open Data collected in 2019 contains information of 48,895 Airbnb listings in New York. The dataset has 16 variables, including listing name, location, price, number of reviews, room type, etc. The analysis focuses on identifying the most influential factors for price and popularity, examining heterogeneity across boroughs and neighborhoods, as well as recommending the best location and name for an Airbnb listing.
+Airbnb New York City Open Data collected in 2019 contains information of 48,895 Airbnb listings in New York. The dataset has 16 variables, including listing name, location, price, number of reviews, room type, etc. The analysis focuses on identifying interesting patterns among airbnb listings, especially the influential factors for price and popularity.
 
 ## 2. Materials and Methods
 
@@ -74,33 +74,33 @@ library(ggplot2)
 library(magick)
 p1 <- ggdraw() + draw_image("figures/XGBoost_LogPrice.png")
 pp1<- plot_grid(p1)
-ggdraw(add_sub(pp1, "Figure 1. XGBoost - Variable Importance Plots for Price", vpadding=grid::unit(0, "lines"), y = 3, x = 0.23, hjust = 0, size=8, fontface="bold"))
+ggdraw(pp1)
 ```
 
 ```{r, fig.cap="\\label{fig:xgb}XGBoost - Variable Importance Plots for Monthly Review", message=FALSE, echo=FALSE, out.width = '85%', fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/XGBoost_LogMonthlyReview.png")
 pp1<- plot_grid(p1)
-ggdraw(add_sub(pp1, "Figure 2. XGBoost - Variable Importance Plots for Monthly Review", vpadding=grid::unit(0, "lines"), y = 3, x = 0.23, hjust = 0, size=8, fontface="bold"))
+ggdraw(pp1)
 ```
 
 ```{r, fig.cap="\\label{fig:boxprice}Boxplot and Mosaic Plot for Price across Boroughs", message=FALSE, echo=FALSE, out.width = '90%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/Boxplot_PriceBoroughs.png")
 p2 <- ggdraw() + draw_image("figures/Mosaic_PriceLevelBoroughs.png")
 pp1<- plot_grid(p1, p2)
-ggdraw(add_sub(pp1, "Figure 3. Boxplot and Mosaic Plot for Price across Boroughs", vpadding=grid::unit(0, "lines"), y = 8, x = 0.3, hjust = 0, size=8, fontface="bold"))
+ggdraw(pp1)
 ```
 
 ```{r, fig.cap="\\label{fig:popboroughs} Boxplot and Mosaic Plot for Monthly Review across Boroughs", message=FALSE, echo=FALSE, out.width = '90%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/Boxplot_MonthlyReviewBoroughs.png")
 p2 <- ggdraw() + draw_image("figures/Mosaic_PopularityLevelBoroughs.png")
 pp1<- plot_grid(p1, p2)
-ggdraw(add_sub(pp1, "Figure 4. Boxplot and Mosaic Plot for Monthly Review across Boroughs", vpadding=grid::unit(0, "lines"), y = 8, x = 0.28, hjust = 0, size=8, fontface="bold"))
+ggdraw(pp1)
 ```
 
 ```{r, fig.cap="\\label{fig:roomborough} Mosaic Plot for Room Type across Boroughs", message=FALSE, echo=FALSE, out.width = '85%',fig.align = "center"}
 p1 <- ggdraw() + draw_image("figures/Mosaic_RoomTypeBoroughs.png")
 pp1<- plot_grid(p1)
-ggdraw(add_sub(pp1, "Figure 5. Mosaic Plot for Room Type across Boroughs", vpadding=grid::unit(0, "lines"), y = 1, x = 0.36, hjust = 0, size=8, fontface="bold"))
+ggdraw(pp1)
 ```
 
 ```{r, fig.cap="\\label{fig:tf-wordcloud} Wordcloud of words in listing names, sized relative to their term-frequencies in the corpus.", message=FALSE, echo=FALSE, out.width = '85%',fig.align = "center"}
